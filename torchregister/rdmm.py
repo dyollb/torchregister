@@ -378,6 +378,9 @@ class RDMMRegistration(BaseRegistration):
         fixed_pyramid = self._create_pyramid(fixed)
         moving_pyramid = self._create_pyramid(moving)
 
+        # Determine interpolation mode based on dimensionality
+        interp_mode = self.interp_mode if ndim == 2 else "trilinear"
+
         # Initialize velocity field - use the coarsest level (index 0)
         coarsest_shape = fixed_pyramid[0].shape[2:]
         velocity_field = VelocityField(coarsest_shape, ndim).to(self.device)
@@ -404,27 +407,16 @@ class RDMMRegistration(BaseRegistration):
                 previous_shrink = self.shrink_factors[scale - 1]
                 current_shrink = self.shrink_factors[scale]
                 scale_ratio = previous_shrink / current_shrink
-                
-                if ndim == 2:
-                    upsampled_velocity = (
-                        F.interpolate(
-                            velocity_field.velocity,
-                            size=current_shape,
-                            mode=self.interp_mode,
-                            align_corners=True,
-                        )
-                        * scale_ratio
+
+                upsampled_velocity = (
+                    F.interpolate(
+                        velocity_field.velocity,
+                        size=current_shape,
+                        mode=interp_mode,
+                        align_corners=True,
                     )
-                else:
-                    upsampled_velocity = (
-                        F.interpolate(
-                            velocity_field.velocity,
-                            size=current_shape,
-                            mode="trilinear",
-                            align_corners=True,
-                        )
-                        * scale_ratio
-                    )
+                    * scale_ratio
+                )
 
                 velocity_field = VelocityField(current_shape, ndim).to(self.device)
                 velocity_field.velocity.data = upsampled_velocity
@@ -446,6 +438,55 @@ class RDMMRegistration(BaseRegistration):
         deformation_field = self._integrate_velocity(
             final_velocity_smooth, self.num_integration_steps
         )
+
+        # Upsample deformation field to original image dimensions if needed
+        original_shape = moving.shape[2:]  # Original moving image spatial dimensions
+        current_shape = deformation_field.shape[
+            1:-1
+        ]  # Current deformation field spatial dimensions
+
+        if current_shape != original_shape:
+            # Calculate scale factor for the deformation field values
+            scale_factors = [
+                orig / curr
+                for orig, curr in zip(original_shape, current_shape, strict=False)
+            ]
+
+            # Permute to put channels first: [B, ndim, spatial_dims...]
+            if ndim == 2:
+                deformation_for_interp = deformation_field.permute(
+                    0, -1, 1, 2
+                )  # [B, 2, H, W]
+            else:  # 3D
+                deformation_for_interp = deformation_field.permute(
+                    0, -1, 1, 2, 3
+                )  # [B, 3, D, H, W]
+
+            # Upsample deformation field to original image size
+            upsampled_deform = F.interpolate(
+                deformation_for_interp,
+                size=original_shape,
+                mode=interp_mode,
+                align_corners=True,
+            )
+
+            # Permute back to original format
+            if ndim == 2:
+                deformation_field = upsampled_deform.permute(
+                    0, 2, 3, 1
+                )  # Back to [B, H, W, 2]
+            else:  # 3D
+                deformation_field = upsampled_deform.permute(
+                    0, 2, 3, 4, 1
+                )  # Back to [B, D, H, W, 3]
+
+            # Scale deformation values appropriately (reverse scale_factors for x,y,z ordering)
+            scale_tensor = torch.tensor(
+                scale_factors[::-1],
+                device=deformation_field.device,
+                dtype=deformation_field.dtype,
+            )
+            deformation_field *= scale_tensor
 
         # Apply final deformation
         registered = apply_deformation(moving, deformation_field, self.interp_mode)

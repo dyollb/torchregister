@@ -229,7 +229,7 @@ dice_loss = Dice(smooth=1e-6)
 3. **Cropping**: Remove unnecessary background
 
 ```python
-from torchregister.io import normalize_image, resample_image
+from torchregister.processing import normalize_image, resample_image
 
 # Normalize intensities
 fixed_normalized = normalize_image(fixed_tensor, method="minmax")
@@ -324,4 +324,6 @@ See the `examples/` directory for complete working examples:
 - `torchregister.io.save_image()` - Save image to file
 - `torchregister.io.sitk_to_torch()` - Convert SimpleITK to PyTorch
 - `torchregister.io.torch_to_sitk()` - Convert PyTorch to SimpleITK
-- `torchregister.io.resample_image()` - Resample image resolution
+- `torchregister.processing.normalize_image()` - Normalize image intensities
+- `torchregister.processing.resample_image()` - Resample image resolution
+- `torchregister.processing.gaussian_blur()` - Apply Gaussian blur filtering

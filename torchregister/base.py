@@ -14,6 +14,7 @@ import torch.nn.functional as F
 
 from .io import sitk_to_torch
 from .metrics import RegistrationLoss
+from .processing import gaussian_blur
 
 
 class BaseRegistration:
@@ -75,9 +76,7 @@ class BaseRegistration:
                 f"Got {len(self.shrink_factors)} and {len(self.smoothing_sigmas)} respectively."
             )
 
-    def _create_pyramid(
-        self, image: torch.Tensor
-    ) -> list[torch.Tensor]:
+    def _create_pyramid(self, image: torch.Tensor) -> list[torch.Tensor]:
         """
         Create image pyramid for multi-scale registration.
 
@@ -88,28 +87,30 @@ class BaseRegistration:
             List of image tensors from coarse to fine resolution
         """
         pyramid = []
-        
-        for shrink_factor, sigma in zip(self.shrink_factors, self.smoothing_sigmas):
+
+        for shrink_factor, sigma in zip(
+            self.shrink_factors, self.smoothing_sigmas, strict=False
+        ):
             current = image
-            
+
             # Apply smoothing if sigma > 0
             if sigma > 0:
-                if len(current.shape) == 4:  # 2D: [B, C, H, W]
-                    kernel_size = int(6 * sigma + 1)  # 6-sigma rule for better coverage
-                    if kernel_size % 2 == 0:
-                        kernel_size += 1
-                    current = F.gaussian_blur(current, kernel_size=[kernel_size, kernel_size], sigma=[sigma, sigma])
-                else:  # 3D: [B, C, D, H, W]
-                    # For 3D, we skip smoothing as PyTorch doesn't have built-in 3D Gaussian blur
-                    pass
-            
+                kernel_size = int(6 * sigma + 1)  # 6-sigma rule for better coverage
+                if kernel_size % 2 == 0:
+                    kernel_size += 1
+                current = gaussian_blur(current, kernel_size, sigma)
+
             # Downsample to the target shrink factor
             if shrink_factor > 1:
                 if len(current.shape) == 4:  # 2D: [B, C, H, W]
-                    current = F.avg_pool2d(current, kernel_size=shrink_factor, stride=shrink_factor)
+                    current = F.avg_pool2d(
+                        current, kernel_size=shrink_factor, stride=shrink_factor
+                    )
                 else:  # 3D: [B, C, D, H, W]
-                    current = F.avg_pool3d(current, kernel_size=shrink_factor, stride=shrink_factor)
-            
+                    current = F.avg_pool3d(
+                        current, kernel_size=shrink_factor, stride=shrink_factor
+                    )
+
             pyramid.append(current)
 
         return pyramid

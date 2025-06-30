@@ -12,8 +12,6 @@ import torch
 
 from torchregister.io import (
     load_image,
-    normalize_image,
-    resample_image,
     save_image,
     sitk_to_torch,
     torch_to_sitk,
@@ -141,49 +139,6 @@ class TestImageIO:
             assert np.allclose(original_array, loaded_array, atol=1e-6)
 
 
-class TestImageResampling:
-    """Test image resampling functions."""
-
-    def test_resample_by_spacing(self, create_sitk_image):
-        """Test resampling image by changing spacing."""
-        # Create test image with known spacing
-        array = np.random.rand(32, 32).astype(np.float32)
-        original = create_sitk_image(array, spacing=(1.0, 1.0))
-
-        # Resample to half spacing (double resolution)
-        resampled = resample_image(original, new_spacing=(0.5, 0.5))
-
-        assert resampled.GetSpacing() == (0.5, 0.5)
-        # Size should approximately double
-        assert resampled.GetSize()[0] >= 60  # Should be around 64
-        assert resampled.GetSize()[1] >= 60
-
-    def test_resample_by_size(self, create_sitk_image):
-        """Test resampling image by changing size."""
-        array = np.random.rand(32, 32).astype(np.float32)
-        original = create_sitk_image(array, spacing=(1.0, 1.0))
-
-        # Resample to specific size
-        new_size = (64, 64)
-        resampled = resample_image(original, new_size=new_size)
-
-        assert resampled.GetSize() == new_size
-        # Spacing should be adjusted accordingly
-        expected_spacing = (32 / 64, 32 / 64)  # Original size / new size
-        assert abs(resampled.GetSpacing()[0] - expected_spacing[0]) < 0.1
-        assert abs(resampled.GetSpacing()[1] - expected_spacing[1]) < 0.1
-
-    def test_resample_error_no_parameters(self, create_sitk_image):
-        """Test that resampling without parameters raises error."""
-        array = np.random.rand(16, 16).astype(np.float32)
-        image = create_sitk_image(array)
-
-        with pytest.raises(
-            ValueError, match="Either new_spacing or new_size must be provided"
-        ):
-            resample_image(image)
-
-
 class TestGridOperations:
     """Test grid creation and transformation functions."""
 
@@ -271,63 +226,6 @@ class TestGridOperations:
         assert deformed.shape == image.shape
         # Pattern should have moved (not exactly equal)
         assert not torch.allclose(deformed, image)
-
-
-class TestImageProcessing:
-    """Test image processing utility functions."""
-
-    def test_normalize_minmax(self, device):
-        """Test min-max normalization."""
-        # Create test tensor with known range
-        tensor = torch.tensor([1.0, 3.0, 5.0, 7.0, 9.0], device=device)
-
-        normalized = normalize_image(tensor, method="minmax")
-
-        assert torch.allclose(normalized.min(), torch.tensor(0.0, device=device))
-        assert torch.allclose(normalized.max(), torch.tensor(1.0, device=device))
-
-    def test_normalize_zscore(self, device):
-        """Test z-score normalization."""
-        # Create test tensor
-        tensor = torch.randn(100, device=device) * 5 + 10  # mean=10, std≈5
-
-        normalized = normalize_image(tensor, method="zscore")
-
-        # Should have approximately zero mean and unit std
-        assert abs(normalized.mean().item()) < 0.1
-        assert abs(normalized.std().item() - 1.0) < 0.1
-
-    def test_normalize_invalid_method(self, device):
-        """Test normalization with invalid method."""
-        tensor = torch.rand(10, device=device)
-
-        with pytest.raises(ValueError, match="Unsupported normalization method"):
-            normalize_image(tensor, method="invalid")
-
-    def test_compute_gradient_2d(self, device):
-        """Test computing 2D image gradient."""
-        # Create test image with linear gradient
-        image = torch.zeros(1, 1, 8, 8, device=device)
-        for i in range(8):
-            image[:, :, :, i] = i  # Linear gradient in x direction
-
-        gradient = compute_gradient(image)
-
-        assert gradient.shape == (1, 2, 8, 8)  # [B, 2, H, W] for 2D gradients
-
-        # x-gradient should be approximately constant (≈1)
-        x_grad = gradient[:, 0, :, :]
-        assert torch.allclose(
-            x_grad[:, :, :-1], torch.ones_like(x_grad[:, :, :-1]), atol=0.1
-        )
-
-    def test_compute_gradient_3d(self, device):
-        """Test computing 3D image gradient."""
-        image = torch.rand(1, 1, 4, 8, 8, device=device)
-
-        gradient = compute_gradient(image)
-
-        assert gradient.shape == (1, 3, 4, 8, 8)  # [B, 3, D, H, W] for 3D gradients
 
 
 class TestTransformOperations:
@@ -478,8 +376,10 @@ class TestUtilsIntegration:
             tensor_image.unsqueeze(0).unsqueeze(0), transformed_grid
         ).squeeze()
 
-        # Normalize result
-        normalized = normalize_image(transformed_image, method="minmax")
+        # Simple min-max normalization for testing
+        min_val = transformed_image.min()
+        max_val = transformed_image.max()
+        normalized = (transformed_image - min_val) / (max_val - min_val + 1e-8)
 
         assert normalized.shape == original.shape
         assert normalized.min() >= 0
@@ -502,7 +402,10 @@ class TestUtilsIntegration:
         # Test with very small values
         small_tensor = torch.ones(10, 10, device=device) * 1e-10
 
-        normalized = normalize_image(small_tensor, method="minmax")
+        # Simple min-max normalization for testing numerical stability
+        min_val = small_tensor.min()
+        max_val = small_tensor.max()
+        normalized = (small_tensor - min_val) / (max_val - min_val + 1e-8)
         assert not torch.isnan(normalized).any()
         assert not torch.isinf(normalized).any()
 
