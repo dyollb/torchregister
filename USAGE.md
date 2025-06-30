@@ -123,7 +123,7 @@ print(f"Negative Jacobian ratio: {rdmm_metrics['negative_jacobian_ratio']:.4f}")
 
 ```python
 import torch
-from torchregister.utils import sitk_to_torch, torch_to_sitk
+from torchregister.io import sitk_to_torch, torch_to_sitk
 
 # Convert SimpleITK to PyTorch
 fixed_tensor = sitk_to_torch(fixed_image)
@@ -219,7 +219,7 @@ dice_loss = Dice(smooth=1e-6)
 3. **Cropping**: Remove unnecessary background
 
 ```python
-from torchregister.utils import normalize_image, resample_image
+from torchregister.io import normalize_image, resample_image
 
 # Normalize intensities
 fixed_normalized = normalize_image(fixed_tensor, method="minmax")
@@ -307,8 +307,8 @@ See the `examples/` directory for complete working examples:
 - `torchregister.metrics.Dice` - Dice Coefficient
 
 ### Utilities
-- `torchregister.utils.load_image()` - Load image from file
-- `torchregister.utils.save_image()` - Save image to file
-- `torchregister.utils.sitk_to_torch()` - Convert SimpleITK to PyTorch
-- `torchregister.utils.torch_to_sitk()` - Convert PyTorch to SimpleITK
-- `torchregister.utils.resample_image()` - Resample image resolution
+- `torchregister.io.load_image()` - Load image from file
+- `torchregister.io.save_image()` - Save image to file
+- `torchregister.io.sitk_to_torch()` - Convert SimpleITK to PyTorch
+- `torchregister.io.torch_to_sitk()` - Convert PyTorch to SimpleITK
+- `torchregister.io.resample_image()` - Resample image resolution

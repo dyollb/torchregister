@@ -12,8 +12,8 @@ import SimpleITK as sitk
 import torch
 import torch.nn.functional as F
 
+from .io import sitk_to_torch
 from .metrics import LNCC, MSE, NCC, BaseLoss
-from .utils import sitk_to_torch
 
 
 class BaseRegistration:

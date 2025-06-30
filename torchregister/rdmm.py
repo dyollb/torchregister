@@ -16,7 +16,7 @@ import torch.optim as optim
 
 from .base import BaseRegistration
 from .metrics import MSE, NCC, BaseLoss
-from .utils import apply_deformation, create_grid
+from .transforms import apply_deformation, create_grid
 
 
 class GaussianSmoothing(nn.Module):

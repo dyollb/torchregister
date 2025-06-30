@@ -33,37 +33,66 @@ For detailed dimension conventions, see docs/IMAGE_DIMENSIONS.md
 """
 
 __version__ = "0.1.0"
-__author__ = "TorchRegister Contributors"
+__author__ = "Bryn Lloyd"
 
 from .affine import AffineRegistration
-from .metrics import LNCC, MSE, NCC, CombinedLoss, Dice, MattesMI
-from .rdmm import RDMMRegistration
-from .utils import (
-    load_image,
-    resample_image,
-    save_image,
+from .conversion import (
     sitk_displacement_to_torch_deformation,
     sitk_transform_to_torch_affine,
     torch_affine_to_sitk_transform,
     torch_deformation_to_sitk_field,
     torch_deformation_to_sitk_transform,
 )
+from .io import (
+    load_image,
+    normalize_image,
+    resample_image,
+    save_image,
+    sitk_to_torch,
+    torch_to_sitk,
+)
+from .metrics import LNCC, MSE, NCC, CombinedLoss, Dice, MattesMI
+from .rdmm import RDMMRegistration
+from .transforms import (
+    apply_deformation,
+    apply_transform,
+    compose_transforms,
+    compute_gradient,
+    compute_target_registration_error,
+    create_grid,
+    create_identity_transform,
+)
 
 __all__ = [
+    # Registration classes
     "AffineRegistration",
     "RDMMRegistration",
+    # Metrics
     "NCC",
     "LNCC",
     "MSE",
     "MattesMI",
     "Dice",
     "CombinedLoss",
+    # IO functions
     "load_image",
     "save_image",
     "resample_image",
+    "sitk_to_torch",
+    "torch_to_sitk",
+    # Transform conversion functions
     "torch_affine_to_sitk_transform",
     "torch_deformation_to_sitk_transform",
     "torch_deformation_to_sitk_field",
     "sitk_transform_to_torch_affine",
     "sitk_displacement_to_torch_deformation",
+    # Transform utility functions
+    "apply_deformation",
+    "apply_transform",
+    "compose_transforms",
+    "compute_gradient",
+    "compute_target_registration_error",
+    "create_grid",
+    "create_identity_transform",
+    "normalize_image",
 ]

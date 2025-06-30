@@ -7,15 +7,14 @@ import pytest
 import SimpleITK as sitk
 import torch
 
-from torchregister.utils import (
+from torchregister.conversion import (
     sitk_displacement_to_torch_deformation,
-    sitk_to_torch,
     sitk_transform_to_torch_affine,
     torch_affine_to_sitk_transform,
     torch_deformation_to_sitk_field,
     torch_deformation_to_sitk_transform,
-    torch_to_sitk,
 )
+from torchregister.io import sitk_to_torch, torch_to_sitk
 
 
 class TestAffineTransformConversion:
@@ -425,7 +424,7 @@ class TestTransformIntegration:
         zero_deformation = torch.zeros(16, 16, 2, device=device)
 
         # Apply using TorchRegister
-        from torchregister.utils import apply_deformation
+        from torchregister.transforms import apply_deformation
 
         torch_zero_result = (
             apply_deformation(
@@ -549,7 +548,7 @@ class TestTransformIntegration:
         )
 
         # Apply with TorchRegister (using normalized coordinates)
-        from torchregister.utils import apply_transform, create_grid
+        from torchregister.transforms import apply_transform, create_grid
 
         grid = create_grid(test_image.shape, device)
         H, W = test_image.shape

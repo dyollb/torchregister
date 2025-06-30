@@ -9,7 +9,7 @@ import torch
 
 from torchregister import AffineRegistration
 from torchregister.metrics import MSE, NCC
-from torchregister.utils import apply_transform, create_grid
+from torchregister.transforms import apply_transform, create_grid
 
 
 def create_synthetic_image(shape=(128, 128), pattern_type="circles"):

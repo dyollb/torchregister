@@ -394,7 +394,7 @@ class TestRDMMIntegration:
         true_deformation = torch.stack([def_x, def_y], dim=-1)
 
         # Apply deformation to create moving image
-        from torchregister.utils import apply_deformation
+        from torchregister.transforms import apply_deformation
 
         moving = apply_deformation(
             fixed.unsqueeze(0).unsqueeze(0), true_deformation.unsqueeze(0)
