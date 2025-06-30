@@ -27,6 +27,7 @@ class BaseRegistration:
     def __init__(
         self,
         similarity_metric: BaseLoss | str = "ncc",
+        interp_mode: str = "bilinear",
         num_scales: int = 3,
         num_iterations: list[int] | None = None,
         learning_rate: float = 0.01,
@@ -38,12 +39,14 @@ class BaseRegistration:
 
         Args:
             similarity_metric: Either a BaseLoss instance or a string identifier ("ncc", "mse", "lncc")
+            interp_mode: Mode used in grid_sample (e.g., "bilinear", "nearest")
             num_scales: Number of pyramid scales for multi-scale registration
             num_iterations: List of iterations per scale (finest to coarsest)
             learning_rate: Optimizer learning rate
             regularization_weight: Weight for regularization term
             device: PyTorch device
         """
+        self.interp_mode = interp_mode
         self.num_scales = num_scales
         self.num_iterations = num_iterations or [100, 200, 300]
         self.learning_rate = learning_rate

@@ -183,7 +183,7 @@ class RDMMRegistration(BaseRegistration):
                 sampled_def = F.grid_sample(
                     v,
                     positions,
-                    mode="bilinear",
+                    mode=self.interp_mode,
                     padding_mode="border",
                     align_corners=True,
                 ).permute(0, 2, 3, 1)
@@ -191,7 +191,7 @@ class RDMMRegistration(BaseRegistration):
                 sampled_def = F.grid_sample(
                     v,
                     positions,
-                    mode="bilinear",
+                    mode=self.interp_mode,
                     padding_mode="border",
                     align_corners=True,
                 ).permute(0, 2, 3, 4, 1)
@@ -315,7 +315,7 @@ class RDMMRegistration(BaseRegistration):
             )
 
             # Apply deformation to moving image
-            warped_moving = apply_deformation(moving, deformation)
+            warped_moving = apply_deformation(moving, deformation, self.interp_mode)
 
             # Compute similarity loss
             sim_loss = self.loss_fn(fixed, warped_moving)
@@ -403,7 +403,7 @@ class RDMMRegistration(BaseRegistration):
                         F.interpolate(
                             velocity_field.velocity,
                             size=current_shape,
-                            mode="bilinear",
+                            mode=self.interp_mode,
                             align_corners=True,
                         )
                         * 2
@@ -441,7 +441,7 @@ class RDMMRegistration(BaseRegistration):
         )
 
         # Apply final deformation
-        registered = apply_deformation(moving, deformation_field)
+        registered = apply_deformation(moving, deformation_field, self.interp_mode)
 
         return deformation_field.squeeze(), registered.squeeze()
 
@@ -466,7 +466,7 @@ class RDMMRegistration(BaseRegistration):
         fixed, moving, _ = self._prepare_input_tensors(fixed_image, moving_image)
 
         # Apply deformation
-        registered = apply_deformation(moving, deformation_field)
+        registered = apply_deformation(moving, deformation_field, self.interp_mode)
 
         # Ensure deformation field has batch dimension for Jacobian computation
         if len(deformation_field.shape) == 3:  # [H, W, 2] -> [1, H, W, 2]
