@@ -176,7 +176,9 @@ class TestRDMMRegistration:
     def test_velocity_integration_2d(self, device):
         """Test velocity field integration for 2D."""
         mse = MSE()
-        reg = RDMMRegistration(similarity_metric=mse, shrink_factors=[2], smoothing_sigmas=[1.0])
+        reg = RDMMRegistration(
+            similarity_metric=mse, shrink_factors=[2], smoothing_sigmas=[1.0]
+        )
 
         # Create simple velocity field
         velocity = torch.zeros(1, 2, 16, 16, device=device)
@@ -192,7 +194,9 @@ class TestRDMMRegistration:
     def test_velocity_integration_3d(self, device):
         """Test velocity field integration for 3D."""
         mse = MSE()
-        reg = RDMMRegistration(similarity_metric=mse, shrink_factors=[2], smoothing_sigmas=[1.0])
+        reg = RDMMRegistration(
+            similarity_metric=mse, shrink_factors=[2], smoothing_sigmas=[1.0]
+        )
 
         # Create simple velocity field
         velocity = torch.zeros(1, 3, 8, 16, 16, device=device)
@@ -253,7 +257,11 @@ class TestRDMMRegistration:
     def test_pyramid_creation(self, device, create_test_image_2d):
         """Test pyramid creation for RDMM."""
         mse = MSE()
-        reg = RDMMRegistration(similarity_metric=mse, shrink_factors=[4, 2, 1], smoothing_sigmas=[2.0, 1.0, 0.0])
+        reg = RDMMRegistration(
+            similarity_metric=mse,
+            shrink_factors=[4, 2, 1],
+            smoothing_sigmas=[2.0, 1.0, 0.0],
+        )
 
         # Create test image
         image = create_test_image_2d().unsqueeze(0).unsqueeze(0)
@@ -298,7 +306,12 @@ class TestRDMMRegistration:
     def test_register_tensor_inputs(self, device, create_test_image_2d):
         """Test registration with PyTorch tensor inputs."""
         mse = MSE()
-        reg = RDMMRegistration(similarity_metric=mse, shrink_factors=[1], smoothing_sigmas=[0.0], num_iterations=[3])
+        reg = RDMMRegistration(
+            similarity_metric=mse,
+            shrink_factors=[1],
+            smoothing_sigmas=[0.0],
+            num_iterations=[3],
+        )
 
         fixed = create_test_image_2d()
         moving = create_test_image_2d()
@@ -338,7 +351,11 @@ class TestRDMMRegistration:
         """Test multi-scale RDMM registration."""
         mse = MSE()
         reg = RDMMRegistration(
-            similarity_metric=mse, shrink_factors=[1], smoothing_sigmas=[0.0], num_iterations=[3], alpha=0.5
+            similarity_metric=mse,
+            shrink_factors=[1],
+            smoothing_sigmas=[0.0],
+            num_iterations=[3],
+            alpha=0.5,
         )
 
         fixed = create_test_image_2d()
@@ -358,7 +375,10 @@ class TestRDMMRegistration:
 
         for metric in metrics:
             reg = RDMMRegistration(
-                similarity_metric=metric, shrink_factors=[1], smoothing_sigmas=[0.0], num_iterations=[3]
+                similarity_metric=metric,
+                shrink_factors=[1],
+                smoothing_sigmas=[0.0],
+                num_iterations=[3],
             )
 
             deformation, registered = reg.register(fixed, moving)
@@ -375,7 +395,10 @@ class TestRDMMRegistration:
 
         for metric in metrics:
             reg = RDMMRegistration(
-                similarity_metric=metric, shrink_factors=[1], smoothing_sigmas=[0.0], num_iterations=[3]
+                similarity_metric=metric,
+                shrink_factors=[1],
+                smoothing_sigmas=[0.0],
+                num_iterations=[3],
             )
 
             deformation, registered = reg.register(fixed, moving)
@@ -392,7 +415,8 @@ class TestRDMMIntegration:
         mse = MSE()
         reg = RDMMRegistration(
             similarity_metric=mse,
-            shrink_factors=[1], smoothing_sigmas=[0.0],
+            shrink_factors=[1],
+            smoothing_sigmas=[0.0],
             num_iterations=[25],
             learning_rate=0.01,
             alpha=0.1,
@@ -460,7 +484,8 @@ class TestRDMMIntegration:
         ncc = NCC()
         reg = RDMMRegistration(
             similarity_metric=ncc,
-            shrink_factors=[1], smoothing_sigmas=[0.0],
+            shrink_factors=[1],
+            smoothing_sigmas=[0.0],
             num_iterations=[30],
             learning_rate=0.01,
             alpha=1.0,

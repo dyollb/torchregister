@@ -24,11 +24,11 @@ torchregister is a Python library for image registration using PyTorch. It provi
 def example_function(param1: torch.Tensor, param2: float = 0.5) -> torch.Tensor:
     """
     Brief description of what the function does.
-    
+
     Args:
         param1: Description of param1
         param2: Description of param2
-        
+
     Returns:
         Description of the return value
     """

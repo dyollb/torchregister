@@ -245,7 +245,7 @@ class AffineRegistration(BaseRegistration):
                 current_shrink = self.shrink_factors[scale]
                 next_shrink = self.shrink_factors[scale + 1]
                 scale_ratio = current_shrink / next_shrink
-                
+
                 matrix = transform.get_matrix()
                 # Scale translation components
                 if ndim == 2:

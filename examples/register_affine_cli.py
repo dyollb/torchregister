@@ -1,9 +1,10 @@
 from pathlib import Path
 
-import torchregister
 import SimpleITK as sitk
-from torchregister.metrics import MattesMI
+
+import torchregister
 from torchregister.conversion import torch_affine_to_sitk_transform
+from torchregister.metrics import MattesMI
 
 
 def register(moving_file: Path, fixed_file: Path, output_dir: Path):
@@ -13,7 +14,8 @@ def register(moving_file: Path, fixed_file: Path, output_dir: Path):
     loss = MattesMI()
     affine_reg = torchregister.AffineRegistration(
         similarity_metric=loss,
-        shrink_factors=[4, 2, 1], smoothing_sigmas=[2.0, 1.0, 0.0],
+        shrink_factors=[4, 2, 1],
+        smoothing_sigmas=[2.0, 1.0, 0.0],
         num_iterations=[100, 60, 30],
         learning_rate=0.01,
     )

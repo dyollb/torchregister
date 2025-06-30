@@ -399,7 +399,10 @@ class TestTransformIntegration:
         # Run registration
         mse = MSE()
         reg = RDMMRegistration(
-            similarity_metric=mse, num_iterations=[3], shrink_factors=[1], smoothing_sigmas=[0.0]
+            similarity_metric=mse,
+            num_iterations=[3],
+            shrink_factors=[1],
+            smoothing_sigmas=[0.0],
         )  # Quick test
         deformation_field, _ = reg.register(fixed, moving)
 
