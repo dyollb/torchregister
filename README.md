@@ -1,5 +1,9 @@
 # TorchRegister
 
+[![CI](https://github.com/dyollb/torchregister/actions/workflows/ci.yml/badge.svg)](https://github.com/dyollb/torchregister/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/dyollb/torchregister/branch/main/graph/badge.svg)](https://codecov.io/gh/dyollb/torchregister)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A PyTorch-based package for multi-scale affine and deformable image registration.
 
 ## Features
