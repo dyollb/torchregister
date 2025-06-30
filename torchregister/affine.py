@@ -228,7 +228,6 @@ class AffineRegistration(BaseRegistration):
             # Access pyramid from coarse to fine
             fixed_scale = fixed_pyramid[scale]
             moving_scale = moving_pyramid[scale]
-            print(moving_scale.shape)
 
             # Adjust number of iterations for this scale
             scale_iterations = self.num_iterations[
