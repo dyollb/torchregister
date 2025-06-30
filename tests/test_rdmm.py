@@ -393,8 +393,8 @@ class TestRDMMIntegration:
         reg = RDMMRegistration(
             similarity_metric=mse,
             shrink_factors=[1], smoothing_sigmas=[0.0],
-            num_iterations=[10],
-            learning_rate=0.05,
+            num_iterations=[25],
+            learning_rate=0.01,
             alpha=0.1,
         )
 

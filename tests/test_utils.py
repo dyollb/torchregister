@@ -359,7 +359,7 @@ class TestUtilsIntegration:
 
         # Convert to SimpleITK and back
         sitk_image = torch_to_sitk(original)
-        tensor_image = sitk_to_torch(sitk_image)
+        tensor_image = sitk_to_torch(sitk_image).to(device)
 
         # Apply transformation
         transform = create_affine_transform_2d(tx=0.1, rotation=0.05)

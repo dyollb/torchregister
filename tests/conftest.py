@@ -11,7 +11,7 @@ import torch
 @pytest.fixture
 def device():
     """PyTorch device for testing."""
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 @pytest.fixture

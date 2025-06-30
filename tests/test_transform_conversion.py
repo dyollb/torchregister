@@ -450,7 +450,7 @@ class TestTransformIntegration:
         resampler.SetReferenceImage(reference)
         resampler.SetTransform(sitk_zero_transform)
         resampler.SetInterpolator(sitk.sitkLinear)
-        sitk_zero_result = sitk_to_torch(resampler.Execute(sitk_image))
+        sitk_zero_result = sitk_to_torch(resampler.Execute(sitk_image)).to(device)
 
         zero_diff = torch.abs(torch_zero_result - sitk_zero_result)
         zero_max_diff = torch.max(zero_diff).item()
@@ -478,7 +478,7 @@ class TestTransformIntegration:
             small_deformation, reference
         )
         resampler.SetTransform(sitk_small_transform)
-        sitk_small_result = sitk_to_torch(resampler.Execute(sitk_image))
+        sitk_small_result = sitk_to_torch(resampler.Execute(sitk_image)).to(device)
 
         small_diff = torch.abs(torch_small_result - sitk_small_result)
         small_max_diff = torch.max(small_diff).item()
@@ -662,7 +662,7 @@ class TestTransformIntegration:
             # Convert back to PyTorch
             recovered_matrix = sitk_transform_to_torch_affine(
                 sitk_transform, dtype=original_matrix.dtype
-            )
+            ).to(device)
 
             # Check round-trip accuracy
             max_error = torch.max(torch.abs(original_matrix - recovered_matrix)).item()
@@ -695,7 +695,7 @@ class TestTransformIntegration:
             # Convert back to PyTorch
             recovered_matrix = sitk_transform_to_torch_affine(
                 sitk_transform, dtype=original_matrix.dtype
-            )
+            ).to(device)
 
             # Check round-trip accuracy
             max_error = torch.max(torch.abs(original_matrix - recovered_matrix)).item()
@@ -732,7 +732,7 @@ class TestTransformIntegration:
             # Convert back to PyTorch
             recovered_deformation = sitk_displacement_to_torch_deformation(
                 displacement_field, add_batch_dim=False
-            )
+            ).to(device)
 
             # Check round-trip accuracy
             max_error = torch.max(
@@ -776,7 +776,7 @@ class TestTransformIntegration:
             # Convert back to PyTorch
             recovered_deformation = sitk_displacement_to_torch_deformation(
                 displacement_field, add_batch_dim=False
-            )
+            ).to(device)
 
             # Check round-trip accuracy
             max_error = torch.max(
