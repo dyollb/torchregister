@@ -21,14 +21,16 @@ python setup.py dev
 ```python
 import torchregister
 import SimpleITK as sitk
+from torchregister.metrics import NCC
 
 # Load images
 fixed_image = sitk.ReadImage("fixed.nii.gz")
 moving_image = sitk.ReadImage("moving.nii.gz")
 
 # Initialize affine registration
+ncc = NCC()
 affine_reg = torchregister.AffineRegistration(
-    similarity_metric="ncc",
+    similarity_metric=ncc,
     num_scales=3,
     num_iterations=[100, 150, 200],
     learning_rate=0.01
@@ -44,9 +46,12 @@ torchregister.save_image(registered_image, "registered.nii.gz", reference_image=
 ### Basic Deformable Registration (RDMM)
 
 ```python
+from torchregister.metrics import LNCC
+
 # Initialize RDMM registration
+lncc = LNCC()
 rdmm_reg = torchregister.RDMMRegistration(
-    similarity_metric="lncc",
+    similarity_metric=lncc,
     num_scales=3,
     num_iterations=[50, 100, 150],
     learning_rate=0.01,
@@ -66,7 +71,7 @@ torchregister.save_image(registered_image, "registered_rdmm.nii.gz", reference_i
 ### Custom Loss Functions
 
 ```python
-from torchregister.metrics import NCC, LNCC, CombinedLoss
+from torchregister.metrics import NCC, LNCC, MSE, CombinedLoss
 
 # Create combined loss
 losses = {
@@ -81,10 +86,12 @@ weights = {
 combined_loss = CombinedLoss(losses, weights)
 
 # Use in registration
+ncc = NCC()
 affine_reg = torchregister.AffineRegistration(
-    similarity_metric="ncc",  # Will be overridden
+    similarity_metric=ncc,  # Use NCC as primary metric
     num_scales=3
 )
+# Note: CombinedLoss can be set after initialization if needed
 affine_reg.loss_fn = combined_loss
 ```
 
@@ -92,8 +99,9 @@ affine_reg.loss_fn = combined_loss
 
 ```python
 # Configure multi-scale pyramid
+mse = MSE()
 affine_reg = torchregister.AffineRegistration(
-    similarity_metric="ncc",
+    similarity_metric=mse,
     num_scales=4,  # 4-level pyramid
     num_iterations=[50, 100, 150, 200],  # Iterations per scale
     learning_rate=0.01,
@@ -278,8 +286,11 @@ affine_reg = torchregister.AffineRegistration(
 
 ```python
 # Enable verbose output
+from torchregister.metrics import NCC
+
+ncc = NCC()
 affine_reg = torchregister.AffineRegistration(
-    similarity_metric="ncc",
+    similarity_metric=ncc,
     num_iterations=[10]  # Fewer iterations for debugging
 )
 

@@ -10,6 +10,7 @@ import numpy as np
 import torch
 
 from torchregister import RDMMRegistration
+from torchregister.metrics import NCC
 from torchregister.transforms import apply_deformation
 
 
@@ -76,8 +77,9 @@ def main():
     print(f"Channel 1 (T2) shape: {fixed_multimodal[0, 1].shape}")
 
     # Initialize registration with NCC (good for similar modalities)
+    ncc = NCC()
     reg = RDMMRegistration(
-        similarity_metric="ncc",
+        similarity_metric=ncc,
         num_scales=2,
         num_iterations=[50, 25],
         learning_rate=0.01,

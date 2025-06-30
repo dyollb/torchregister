@@ -66,7 +66,7 @@ def create_grid(
 
 
 def apply_transform(
-    image: torch.Tensor, transformed_grid: torch.Tensor
+    image: torch.Tensor, transformed_grid: torch.Tensor, interp_mode: str = "bilinear"
 ) -> torch.Tensor:
     """
     Apply transformation grid to image using grid sampling.
@@ -120,7 +120,7 @@ def apply_transform(
         warped = F.grid_sample(
             image,
             transformed_grid,
-            mode="bilinear",
+            mode=interp_mode,
             padding_mode="border",
             align_corners=True,
         )
@@ -135,7 +135,7 @@ def apply_transform(
         warped = F.grid_sample(
             image,
             transformed_grid,
-            mode="bilinear",
+            mode=interp_mode,
             padding_mode="border",
             align_corners=True,
         )
@@ -149,7 +149,9 @@ def apply_transform(
     return warped
 
 
-def apply_deformation(image: torch.Tensor, deformation: torch.Tensor) -> torch.Tensor:
+def apply_deformation(
+    image: torch.Tensor, deformation: torch.Tensor, interp_mode: str = "bilinear"
+) -> torch.Tensor:
     """
     Apply deformation field to image.
 
@@ -204,7 +206,7 @@ def apply_deformation(image: torch.Tensor, deformation: torch.Tensor) -> torch.T
     warped_grid = grid + deformation
 
     # Apply transformation
-    warped = apply_transform(image, warped_grid)
+    warped = apply_transform(image, warped_grid, interp_mode)
 
     # Restore original shape if needed
     if len(original_image_shape) == 2:

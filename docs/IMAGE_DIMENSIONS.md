@@ -73,8 +73,10 @@ multi_modal = multi_modal.unsqueeze(0)  # [1, 2, D, H, W] - [B, C, D, H, W]
 
 # For registration
 from torchregister import RDMMRegistration
+from torchregister.metrics import NCC
 
-reg = RDMMRegistration()
+ncc = NCC()
+reg = RDMMRegistration(similarity_metric=ncc)
 # Both fixed and moving should have same number of channels
 fixed_multi = multi_modal  # [1, 2, D, H, W]
 moving_multi = multi_modal  # [1, 2, D, H, W]
@@ -179,8 +181,11 @@ fixed_multi = torch.stack([t1_fixed_torch, t2_fixed_torch], dim=0).unsqueeze(0) 
 moving_multi = torch.stack([t1_moving_torch, t2_moving_torch], dim=0).unsqueeze(0) # [1, 2, D, H, W]
 
 # Perform registration
+from torchregister.metrics import NCC
+
+ncc = NCC()
 reg = RDMMRegistration(
-    similarity_metric="ncc",  # NCC computed per-channel, then averaged
+    similarity_metric=ncc,  # NCC computed per-channel, then averaged
     num_scales=3,
     num_iterations=[100, 50, 25]
 )

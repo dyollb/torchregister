@@ -13,7 +13,7 @@ import torch
 import torch.nn.functional as F
 
 from .io import sitk_to_torch
-from .metrics import LNCC, MSE, NCC, BaseLoss
+from .metrics import RegistrationLoss
 
 
 class BaseRegistration:
@@ -26,7 +26,8 @@ class BaseRegistration:
 
     def __init__(
         self,
-        similarity_metric: BaseLoss | str = "ncc",
+        similarity_metric: RegistrationLoss,
+        interp_mode: str = "bilinear",
         num_scales: int = 3,
         num_iterations: list[int] | None = None,
         learning_rate: float = 0.01,
@@ -37,13 +38,15 @@ class BaseRegistration:
         Initialize base registration parameters.
 
         Args:
-            similarity_metric: Either a BaseLoss instance or a string identifier ("ncc", "mse", "lncc")
+            similarity_metric: RegistrationLoss instance for computing similarity
+            interp_mode: Mode used in grid_sample (e.g., "bilinear", "nearest")
             num_scales: Number of pyramid scales for multi-scale registration
             num_iterations: List of iterations per scale (finest to coarsest)
             learning_rate: Optimizer learning rate
             regularization_weight: Weight for regularization term
             device: PyTorch device
         """
+        self.interp_mode = interp_mode
         self.num_scales = num_scales
         self.num_iterations = num_iterations or [100, 200, 300]
         self.learning_rate = learning_rate
@@ -53,19 +56,13 @@ class BaseRegistration:
         )
 
         # Initialize similarity metric
-        if isinstance(similarity_metric, BaseLoss):
-            self.loss_fn = similarity_metric
-        elif isinstance(similarity_metric, str):
-            if similarity_metric.lower() == "ncc":
-                self.loss_fn = NCC()
-            elif similarity_metric.lower() == "mse":
-                self.loss_fn = MSE()
-            elif similarity_metric.lower() == "lncc":
-                self.loss_fn = LNCC()
-            else:
-                raise ValueError(f"Unsupported similarity metric: {similarity_metric}")
-        else:
-            raise TypeError("similarity_metric must be a BaseLoss instance or a string")
+        if not isinstance(similarity_metric, RegistrationLoss):
+            raise TypeError(
+                f"similarity_metric must be an instance of RegistrationLoss, "
+                f"got {type(similarity_metric).__name__}. "
+                f"Use NCC(), MSE(), LNCC(), or another RegistrationLoss subclass instead."
+            )
+        self.loss_fn = similarity_metric
 
     def _create_pyramid(
         self, image: torch.Tensor, num_scales: int

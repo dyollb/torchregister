@@ -97,14 +97,15 @@ class TestAffineRegistration:
 
     def test_registration_initialization(self):
         """Test registration object initialization."""
+        ncc = NCC()
         reg = AffineRegistration(
-            similarity_metric="ncc",
+            similarity_metric=ncc,
             num_scales=2,
             num_iterations=[50, 100],
             learning_rate=0.05,
         )
 
-        assert reg.loss_fn.__class__.__name__ == "NCC"
+        assert reg.loss_fn is ncc
         assert reg.num_scales == 2
         assert reg.num_iterations == [50, 100]
         assert reg.learning_rate == 0.05
@@ -124,21 +125,24 @@ class TestAffineRegistration:
         assert reg.num_iterations == [50, 100]
         assert reg.learning_rate == 0.05
 
-    def test_invalid_similarity_metric(self):
-        """Test initialization with invalid similarity metric."""
-        with pytest.raises(ValueError, match="Unsupported similarity metric"):
-            AffineRegistration(similarity_metric="invalid")
-
     def test_invalid_similarity_metric_type(self):
         """Test initialization with invalid similarity metric type."""
         with pytest.raises(
-            TypeError, match="similarity_metric must be a BaseLoss instance or a string"
+            TypeError, match="similarity_metric must be an instance of RegistrationLoss"
         ):
             AffineRegistration(similarity_metric=123)
 
+    def test_invalid_similarity_metric_string(self):
+        """Test initialization with string similarity metric (no longer supported)."""
+        with pytest.raises(
+            TypeError, match="similarity_metric must be an instance of RegistrationLoss"
+        ):
+            AffineRegistration(similarity_metric="ncc")
+
     def test_pyramid_creation_2d(self, device, create_test_image_2d):
         """Test image pyramid creation for 2D images."""
-        reg = AffineRegistration(num_scales=3)
+        mse = MSE()
+        reg = AffineRegistration(similarity_metric=mse, num_scales=3)
 
         # Create test image
         image = (
@@ -159,7 +163,8 @@ class TestAffineRegistration:
 
     def test_pyramid_creation_3d(self, device, create_test_image_3d):
         """Test image pyramid creation for 3D images."""
-        reg = AffineRegistration(num_scales=2)
+        mse = MSE()
+        reg = AffineRegistration(similarity_metric=mse, num_scales=2)
 
         # Create test image
         image = (
@@ -177,7 +182,8 @@ class TestAffineRegistration:
 
     def test_regularization_loss(self, device):
         """Test regularization loss computation."""
-        reg = AffineRegistration(regularization_weight=1.0)
+        mse = MSE()
+        reg = AffineRegistration(similarity_metric=mse, regularization_weight=1.0)
 
         # Create transform with small deviation from identity
         transform = AffineTransform(ndim=2, init_identity=True).to(device)
@@ -192,8 +198,9 @@ class TestAffineRegistration:
         self, device, create_test_image_2d, tolerance
     ):
         """Test registration of identical 2D images."""
+        mse = MSE()
         reg = AffineRegistration(
-            similarity_metric="mse",
+            similarity_metric=mse,
             num_scales=1,
             num_iterations=[10],  # Few iterations for speed
             learning_rate=0.1,
@@ -218,8 +225,9 @@ class TestAffineRegistration:
         self, device, create_test_image_2d, create_affine_transform_2d
     ):
         """Test registration of translated 2D images."""
+        mse = MSE()
         reg = AffineRegistration(
-            similarity_metric="mse",
+            similarity_metric=mse,
             num_scales=1,
             num_iterations=[20],
             learning_rate=0.1,
@@ -258,8 +266,9 @@ class TestAffineRegistration:
         self, device, create_test_image_2d, create_affine_transform_2d
     ):
         """Test registration with initial transformation."""
+        mse = MSE()
         reg = AffineRegistration(
-            similarity_metric="mse", num_scales=1, num_iterations=[5]
+            similarity_metric=mse, num_scales=1, num_iterations=[5]
         )
 
         fixed = create_test_image_2d(noise_level=0.0)
@@ -277,7 +286,8 @@ class TestAffineRegistration:
         self, device, create_test_image_2d, create_affine_transform_2d
     ):
         """Test evaluation of registration quality."""
-        reg = AffineRegistration()
+        mse = MSE()
+        reg = AffineRegistration(similarity_metric=mse)
 
         fixed = create_test_image_2d(noise_level=0.0)
         moving = create_test_image_2d(noise_level=0.0)
@@ -295,8 +305,9 @@ class TestAffineRegistration:
 
     def test_register_tensor_inputs(self, device, create_test_image_2d):
         """Test registration with PyTorch tensor inputs."""
+        mse = MSE()
         reg = AffineRegistration(
-            similarity_metric="mse", num_scales=1, num_iterations=[5]
+            similarity_metric=mse, num_scales=1, num_iterations=[5]
         )
 
         fixed = create_test_image_2d()
@@ -310,8 +321,9 @@ class TestAffineRegistration:
 
     def test_multi_scale_registration(self, device, create_test_image_2d):
         """Test multi-scale registration."""
+        mse = MSE()
         reg = AffineRegistration(
-            similarity_metric="mse", num_scales=3, num_iterations=[5, 5, 5]
+            similarity_metric=mse, num_scales=3, num_iterations=[5, 5, 5]
         )
 
         fixed = create_test_image_2d()
@@ -330,8 +342,9 @@ class TestAffineRegistrationIntegration:
         self, device, create_test_image_2d, create_affine_transform_2d
     ):
         """Test that registration converges for simple transformations."""
+        mse = MSE()
         reg = AffineRegistration(
-            similarity_metric="mse",
+            similarity_metric=mse,
             num_scales=2,
             num_iterations=[50, 100],
             learning_rate=0.01,
@@ -363,7 +376,7 @@ class TestAffineRegistrationIntegration:
 
     def test_registration_different_metrics(self, device, create_test_image_2d):
         """Test registration with different similarity metrics."""
-        metrics = ["ncc", "mse"]
+        metrics = [NCC(), MSE()]
 
         fixed = create_test_image_2d(noise_level=0.05)
         moving = create_test_image_2d(noise_level=0.05)
@@ -399,8 +412,9 @@ class TestAffineRegistrationIntegration:
         self, device, create_test_image_2d, create_affine_transform_2d
     ):
         """Test registration robustness to noise."""
+        ncc = NCC()  # NCC is more robust to noise
         reg = AffineRegistration(
-            similarity_metric="ncc",  # NCC is more robust to noise
+            similarity_metric=ncc,
             num_scales=2,
             num_iterations=[30, 50],
             regularization_weight=0.1,

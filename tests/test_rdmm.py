@@ -117,8 +117,9 @@ class TestRDMMRegistration:
 
     def test_registration_initialization(self):
         """Test RDMM registration initialization."""
+        lncc = LNCC()
         reg = RDMMRegistration(
-            similarity_metric="lncc",
+            similarity_metric=lncc,
             num_scales=2,
             num_iterations=[30, 50],
             learning_rate=0.02,
@@ -126,7 +127,7 @@ class TestRDMMRegistration:
             alpha=2.0,
         )
 
-        assert reg.loss_fn.__class__.__name__ == "LNCC"
+        assert reg.loss_fn is lncc
         assert reg.num_scales == 2
         assert reg.num_iterations == [30, 50]
         assert reg.learning_rate == 0.02
@@ -152,21 +153,24 @@ class TestRDMMRegistration:
         assert reg.smoothing_sigma == 1.5
         assert reg.alpha == 2.0
 
-    def test_invalid_similarity_metric(self):
-        """Test initialization with invalid similarity metric."""
-        with pytest.raises(ValueError, match="Unsupported similarity metric"):
-            RDMMRegistration(similarity_metric="invalid")
-
     def test_invalid_similarity_metric_type(self):
         """Test initialization with invalid similarity metric type."""
         with pytest.raises(
-            TypeError, match="similarity_metric must be a BaseLoss instance or a string"
+            TypeError, match="similarity_metric must be an instance of RegistrationLoss"
         ):
             RDMMRegistration(similarity_metric=123)
 
+    def test_invalid_similarity_metric_string(self):
+        """Test initialization with string similarity metric (no longer supported)."""
+        with pytest.raises(
+            TypeError, match="similarity_metric must be an instance of RegistrationLoss"
+        ):
+            RDMMRegistration(similarity_metric="lncc")
+
     def test_velocity_integration_2d(self, device):
         """Test velocity field integration for 2D."""
-        reg = RDMMRegistration(num_scales=1)
+        mse = MSE()
+        reg = RDMMRegistration(similarity_metric=mse, num_scales=1)
 
         # Create simple velocity field
         velocity = torch.zeros(1, 2, 16, 16, device=device)
@@ -181,7 +185,8 @@ class TestRDMMRegistration:
 
     def test_velocity_integration_3d(self, device):
         """Test velocity field integration for 3D."""
-        reg = RDMMRegistration(num_scales=1)
+        mse = MSE()
+        reg = RDMMRegistration(similarity_metric=mse, num_scales=1)
 
         # Create simple velocity field
         velocity = torch.zeros(1, 3, 8, 16, 16, device=device)
@@ -196,7 +201,8 @@ class TestRDMMRegistration:
 
     def test_jacobian_determinant_2d(self, device):
         """Test Jacobian determinant computation for 2D."""
-        reg = RDMMRegistration()
+        mse = MSE()
+        reg = RDMMRegistration(similarity_metric=mse)
 
         # Create small deformation field
         deformation = torch.zeros(1, 8, 8, 2, device=device)
@@ -210,7 +216,8 @@ class TestRDMMRegistration:
 
     def test_jacobian_determinant_3d(self, device):
         """Test Jacobian determinant computation for 3D."""
-        reg = RDMMRegistration()
+        mse = MSE()
+        reg = RDMMRegistration(similarity_metric=mse)
 
         # Create small deformation field
         deformation = torch.zeros(1, 4, 8, 8, 3, device=device)
@@ -224,7 +231,10 @@ class TestRDMMRegistration:
 
     def test_regularization_loss_computation(self, device):
         """Test regularization loss computation."""
-        reg = RDMMRegistration(alpha=1.0, num_integration_steps=2)
+        mse = MSE()
+        reg = RDMMRegistration(
+            similarity_metric=mse, alpha=1.0, num_integration_steps=2
+        )
 
         # Create velocity field with some magnitude
         velocity = torch.randn(1, 2, 8, 8, device=device) * 0.1
@@ -236,7 +246,8 @@ class TestRDMMRegistration:
 
     def test_pyramid_creation(self, device, create_test_image_2d):
         """Test pyramid creation for RDMM."""
-        reg = RDMMRegistration(num_scales=3)
+        mse = MSE()
+        reg = RDMMRegistration(similarity_metric=mse, num_scales=3)
 
         # Create test image
         image = create_test_image_2d().unsqueeze(0).unsqueeze(0)
@@ -254,8 +265,9 @@ class TestRDMMRegistration:
 
     def test_register_identical_images_2d(self, device, create_test_image_2d):
         """Test registration of identical 2D images."""
+        mse = MSE()
         reg = RDMMRegistration(
-            similarity_metric="mse",
+            similarity_metric=mse,
             num_scales=1,
             num_iterations=[5],  # Few iterations for speed
             learning_rate=0.1,
@@ -278,9 +290,8 @@ class TestRDMMRegistration:
 
     def test_register_tensor_inputs(self, device, create_test_image_2d):
         """Test registration with PyTorch tensor inputs."""
-        reg = RDMMRegistration(
-            similarity_metric="mse", num_scales=1, num_iterations=[3]
-        )
+        mse = MSE()
+        reg = RDMMRegistration(similarity_metric=mse, num_scales=1, num_iterations=[3])
 
         fixed = create_test_image_2d()
         moving = create_test_image_2d()
@@ -295,7 +306,8 @@ class TestRDMMRegistration:
 
     def test_evaluation_metrics(self, device, create_test_image_2d):
         """Test evaluation of RDMM registration quality."""
-        reg = RDMMRegistration()
+        mse = MSE()
+        reg = RDMMRegistration(similarity_metric=mse)
 
         fixed = create_test_image_2d(noise_level=0.0)
         moving = create_test_image_2d(noise_level=0.0)
@@ -317,8 +329,9 @@ class TestRDMMRegistration:
 
     def test_multi_scale_registration(self, device, create_test_image_2d):
         """Test multi-scale RDMM registration."""
+        mse = MSE()
         reg = RDMMRegistration(
-            similarity_metric="mse", num_scales=1, num_iterations=[3], alpha=0.5
+            similarity_metric=mse, num_scales=1, num_iterations=[3], alpha=0.5
         )
 
         fixed = create_test_image_2d()
@@ -331,7 +344,7 @@ class TestRDMMRegistration:
 
     def test_different_similarity_metrics(self, device, create_test_image_2d):
         """Test RDMM with different similarity metrics."""
-        metrics = ["ncc", "lncc", "mse"]
+        metrics = [NCC(), LNCC(), MSE()]
 
         fixed = create_test_image_2d()
         moving = create_test_image_2d()
@@ -369,8 +382,9 @@ class TestRDMMIntegration:
 
     def test_registration_with_known_deformation(self, device, create_test_image_2d):
         """Test RDMM registration with known synthetic deformation."""
+        mse = MSE()
         reg = RDMMRegistration(
-            similarity_metric="mse",
+            similarity_metric=mse,
             num_scales=1,
             num_iterations=[10],
             learning_rate=0.05,
@@ -411,7 +425,8 @@ class TestRDMMIntegration:
 
     def test_jacobian_determinant_properties(self, device):
         """Test properties of Jacobian determinant computation."""
-        reg = RDMMRegistration()
+        mse = MSE()
+        reg = RDMMRegistration(similarity_metric=mse)
 
         # Test with identity deformation (should give determinant = 1)
         identity_def = torch.zeros(1, 8, 8, 2, device=device)
@@ -422,7 +437,8 @@ class TestRDMMIntegration:
 
     def test_velocity_field_integration_properties(self, device):
         """Test properties of velocity field integration."""
-        reg = RDMMRegistration()
+        mse = MSE()
+        reg = RDMMRegistration(similarity_metric=mse)
 
         # Zero velocity should give zero deformation
         zero_velocity = torch.zeros(1, 2, 8, 8, device=device)
@@ -434,8 +450,9 @@ class TestRDMMIntegration:
 
     def test_registration_convergence_properties(self, device, create_test_image_2d):
         """Test that RDMM registration has proper convergence properties."""
+        ncc = NCC()
         reg = RDMMRegistration(
-            similarity_metric="ncc",
+            similarity_metric=ncc,
             num_scales=1,
             num_iterations=[30],
             learning_rate=0.01,
