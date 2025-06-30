@@ -9,7 +9,7 @@ pip install torchregister
 
 ### Development Installation
 ```bash
-git clone https://github.com/yourusername/torchregister.git
+git clone https://github.com/dyollb/torchregister.git
 cd torchregister
 python setup.py dev
 ```
