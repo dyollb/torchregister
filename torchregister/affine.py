@@ -94,7 +94,8 @@ class AffineRegistration(BaseRegistration):
     def __init__(
         self,
         similarity_metric: RegistrationLoss,
-        num_scales: int = 3,
+        shrink_factors: list[int] | None = None,
+        smoothing_sigmas: list[float] | None = None,
         num_iterations: list[int] | None = None,
         learning_rate: float = 0.01,
         regularization_weight: float = 0.0,
@@ -103,15 +104,17 @@ class AffineRegistration(BaseRegistration):
         """
         Args:
             similarity_metric: RegistrationLoss instance for computing similarity
-            num_scales: Number of pyramid scales
-            num_iterations: Iterations per scale (default: [100, 200, 300])
+            shrink_factors: List of downsample factors per scale (e.g., [8, 4, 2, 1])
+            smoothing_sigmas: List of Gaussian smoothing sigmas in pixel units per scale
+            num_iterations: Iterations per scale
             learning_rate: Optimizer learning rate
             regularization_weight: Weight for regularization term
             device: PyTorch device
         """
         super().__init__(
             similarity_metric=similarity_metric,
-            num_scales=num_scales,
+            shrink_factors=shrink_factors,
+            smoothing_sigmas=smoothing_sigmas,
             num_iterations=num_iterations,
             learning_rate=learning_rate,
             regularization_weight=regularization_weight,
@@ -209,8 +212,8 @@ class AffineRegistration(BaseRegistration):
         fixed, moving, ndim = self._prepare_input_tensors(fixed_image, moving_image)
 
         # Create image pyramids
-        fixed_pyramid = self._create_pyramid(fixed, self.num_scales)
-        moving_pyramid = self._create_pyramid(moving, self.num_scales)
+        fixed_pyramid = self._create_pyramid(fixed)
+        moving_pyramid = self._create_pyramid(moving)
 
         # Initialize transformation
         transform = AffineTransform(ndim=ndim, init_identity=True).to(self.device)
@@ -225,6 +228,7 @@ class AffineRegistration(BaseRegistration):
             # Access pyramid from coarse to fine
             fixed_scale = fixed_pyramid[scale]
             moving_scale = moving_pyramid[scale]
+            print(moving_scale.shape)
 
             # Adjust number of iterations for this scale
             scale_iterations = self.num_iterations[
@@ -236,14 +240,18 @@ class AffineRegistration(BaseRegistration):
                 fixed_scale, moving_scale, transform, scale_iterations
             )
 
-            # If not the finest scale, upsample transformation
+            # If not the finest scale, scale transformation appropriately
             if scale < self.num_scales - 1:
+                current_shrink = self.shrink_factors[scale]
+                next_shrink = self.shrink_factors[scale + 1]
+                scale_ratio = current_shrink / next_shrink
+                
                 matrix = transform.get_matrix()
-                # Scale translation components by 2
+                # Scale translation components
                 if ndim == 2:
-                    matrix[:, 2] *= 2
+                    matrix[:, 2] *= scale_ratio
                 else:
-                    matrix[:, 3] *= 2
+                    matrix[:, 3] *= scale_ratio
                 transform.set_matrix(matrix)
 
         # Apply final transformation to original moving image

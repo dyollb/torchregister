@@ -125,7 +125,7 @@ def run_affine_registration_example():
     ncc = NCC()
     registration = AffineRegistration(
         similarity_metric=ncc,
-        num_scales=3,
+        shrink_factors=[4, 2, 1], smoothing_sigmas=[2.0, 1.0, 0.0],
         num_iterations=[100, 150, 200],
         learning_rate=0.01,
         regularization_weight=0.001,

@@ -31,7 +31,7 @@ moving_image = sitk.ReadImage("moving.nii.gz")
 ncc = NCC()
 affine_reg = torchregister.AffineRegistration(
     similarity_metric=ncc,
-    num_scales=3,
+    shrink_factors=[4, 2, 1], smoothing_sigmas=[2.0, 1.0, 0.0],
     num_iterations=[100, 150, 200],
     learning_rate=0.01
 )
@@ -52,7 +52,7 @@ from torchregister.metrics import LNCC
 lncc = LNCC()
 rdmm_reg = torchregister.RDMMRegistration(
     similarity_metric=lncc,
-    num_scales=3,
+    shrink_factors=[4, 2, 1], smoothing_sigmas=[2.0, 1.0, 0.0],
     num_iterations=[50, 100, 150],
     learning_rate=0.01,
     smoothing_sigma=1.5,
@@ -89,7 +89,7 @@ combined_loss = CombinedLoss(losses, weights)
 ncc = NCC()
 affine_reg = torchregister.AffineRegistration(
     similarity_metric=ncc,  # Use NCC as primary metric
-    num_scales=3
+    shrink_factors=[4, 2, 1], smoothing_sigmas=[2.0, 1.0, 0.0]
 )
 # Note: CombinedLoss can be set after initialization if needed
 affine_reg.loss_fn = combined_loss
@@ -102,7 +102,7 @@ affine_reg.loss_fn = combined_loss
 mse = MSE()
 affine_reg = torchregister.AffineRegistration(
     similarity_metric=mse,
-    num_scales=4,  # 4-level pyramid
+    shrink_factors=[8, 4, 2, 1], smoothing_sigmas=[3.0, 2.0, 1.0, 0.0],  # 4-level pyramid
     num_iterations=[50, 100, 150, 200],  # Iterations per scale
     learning_rate=0.01,
     regularization_weight=0.001
@@ -151,7 +151,8 @@ registered_sitk = torch_to_sitk(registered_tensor, reference_image=fixed_image)
 | Parameter | Description | Default | Range |
 |-----------|-------------|---------|-------|
 | `similarity_metric` | Similarity metric | "ncc" | "ncc", "mse" |
-| `num_scales` | Number of pyramid levels | 3 | 1-5 |
+| `shrink_factors` | List of downsample factors per scale | [4, 2, 1] | e.g., [8, 4, 2, 1] |
+| `smoothing_sigmas` | List of Gaussian smoothing sigmas in pixel units | [2.0, 1.0, 0.0] | e.g., [3.0, 2.0, 1.0, 0.0] |
 | `num_iterations` | Iterations per scale | [100, 200, 300] | List of ints |
 | `learning_rate` | Optimizer learning rate | 0.01 | 0.001-0.1 |
 | `regularization_weight` | Regularization strength | 0.0 | 0.0-1.0 |
@@ -161,7 +162,8 @@ registered_sitk = torch_to_sitk(registered_tensor, reference_image=fixed_image)
 | Parameter | Description | Default | Range |
 |-----------|-------------|---------|-------|
 | `similarity_metric` | Similarity metric | "lncc" | "ncc", "lncc", "mse" |
-| `num_scales` | Number of pyramid levels | 3 | 1-5 |
+| `shrink_factors` | List of downsample factors per scale | [4, 2, 1] | e.g., [8, 4, 2, 1] |
+| `smoothing_sigmas` | List of Gaussian smoothing sigmas in pixel units | [2.0, 1.0, 0.0] | e.g., [3.0, 2.0, 1.0, 0.0] |
 | `num_iterations` | Iterations per scale | [50, 100, 200] | List of ints |
 | `learning_rate` | Optimizer learning rate | 0.01 | 0.001-0.1 |
 | `smoothing_sigma` | Gaussian smoothing sigma | 1.0 | 0.5-3.0 |

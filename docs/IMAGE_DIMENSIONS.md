@@ -186,7 +186,7 @@ from torchregister.metrics import NCC
 ncc = NCC()
 reg = RDMMRegistration(
     similarity_metric=ncc,  # NCC computed per-channel, then averaged
-    num_scales=3,
+    shrink_factors=[4, 2, 1], smoothing_sigmas=[2.0, 1.0, 0.0],
     num_iterations=[100, 50, 25]
 )
 

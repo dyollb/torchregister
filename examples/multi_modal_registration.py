@@ -80,7 +80,7 @@ def main():
     ncc = NCC()
     reg = RDMMRegistration(
         similarity_metric=ncc,
-        num_scales=2,
+        shrink_factors=[4, 2], smoothing_sigmas=[2.0, 1.0],
         num_iterations=[50, 25],
         learning_rate=0.01,
     )

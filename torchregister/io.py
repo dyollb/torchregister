@@ -3,6 +3,7 @@ Utility functions for image I/O and conversion between SimpleITK and PyTorch.
 """
 
 from collections.abc import Sequence
+from pathlib import Path
 
 import numpy as np
 import SimpleITK as sitk
@@ -68,7 +69,7 @@ def torch_to_sitk(
     return image
 
 
-def load_image(filepath: str) -> sitk.Image:
+def load_image(filepath: str | Path) -> sitk.Image:
     """
     Load image from file using SimpleITK.
 
@@ -87,7 +88,7 @@ def load_image(filepath: str) -> sitk.Image:
 
 def save_image(
     image: sitk.Image | torch.Tensor,
-    filepath: str,
+    filepath: str | Path,
     reference_image: sitk.Image | None = None,
 ) -> None:
     """

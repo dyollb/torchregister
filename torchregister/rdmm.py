@@ -114,7 +114,8 @@ class RDMMRegistration(BaseRegistration):
     def __init__(
         self,
         similarity_metric: RegistrationLoss,
-        num_scales: int = 3,
+        shrink_factors: list[int] | None = None,
+        smoothing_sigmas: list[float] | None = None,
         num_iterations: list[int] | None = None,
         learning_rate: float = 0.01,
         smoothing_sigma: float = 1.0,
@@ -125,7 +126,8 @@ class RDMMRegistration(BaseRegistration):
         """
         Args:
             similarity_metric: Similarity metric (RegistrationLoss instance or "ncc", "lncc", "mse")
-            num_scales: Number of pyramid scales
+            shrink_factors: List of downsample factors per scale (e.g., [8, 4, 2, 1])
+            smoothing_sigmas: List of Gaussian smoothing sigmas in pixel units per scale
             num_iterations: Iterations per scale
             learning_rate: Optimizer learning rate
             smoothing_sigma: Gaussian smoothing sigma for regularization
@@ -135,7 +137,8 @@ class RDMMRegistration(BaseRegistration):
         """
         super().__init__(
             similarity_metric=similarity_metric,
-            num_scales=num_scales,
+            shrink_factors=shrink_factors,
+            smoothing_sigmas=smoothing_sigmas,
             num_iterations=num_iterations,
             learning_rate=learning_rate,
             regularization_weight=alpha,
@@ -372,8 +375,8 @@ class RDMMRegistration(BaseRegistration):
         fixed, moving, ndim = self._prepare_input_tensors(fixed_image, moving_image)
 
         # Create image pyramids
-        fixed_pyramid = self._create_pyramid(fixed, self.num_scales)
-        moving_pyramid = self._create_pyramid(moving, self.num_scales)
+        fixed_pyramid = self._create_pyramid(fixed)
+        moving_pyramid = self._create_pyramid(moving)
 
         # Initialize velocity field - use the coarsest level (index 0)
         coarsest_shape = fixed_pyramid[0].shape[2:]
@@ -398,6 +401,10 @@ class RDMMRegistration(BaseRegistration):
             # If not the first scale, upsample velocity field
             if scale > 0:
                 current_shape = fixed_scale.shape[2:]
+                previous_shrink = self.shrink_factors[scale - 1]
+                current_shrink = self.shrink_factors[scale]
+                scale_ratio = previous_shrink / current_shrink
+                
                 if ndim == 2:
                     upsampled_velocity = (
                         F.interpolate(
@@ -406,8 +413,8 @@ class RDMMRegistration(BaseRegistration):
                             mode=self.interp_mode,
                             align_corners=True,
                         )
-                        * 2
-                    )  # Scale by 2 for upsampling
+                        * scale_ratio
+                    )
                 else:
                     upsampled_velocity = (
                         F.interpolate(
@@ -416,7 +423,7 @@ class RDMMRegistration(BaseRegistration):
                             mode="trilinear",
                             align_corners=True,
                         )
-                        * 2
+                        * scale_ratio
                     )
 
                 velocity_field = VelocityField(current_shape, ndim).to(self.device)
