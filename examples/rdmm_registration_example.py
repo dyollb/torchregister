@@ -10,7 +10,7 @@ import torch
 
 from torchregister import RDMMRegistration
 from torchregister.metrics import LNCC, MSE, NCC
-from torchregister.utils import apply_deformation
+from torchregister.transforms import apply_deformation
 
 
 def create_synthetic_image_with_details(shape=(96, 96), complexity="medium"):

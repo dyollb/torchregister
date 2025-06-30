@@ -33,37 +33,25 @@ For detailed dimension conventions, see docs/IMAGE_DIMENSIONS.md
 """
 
 __version__ = "0.1.0"
-__author__ = "TorchRegister Contributors"
 
+# Import submodules to make them available as torchregister.submodule
+from . import affine, base, conversion, io, metrics, rdmm, transforms, utils
+
+# Only expose the most essential classes/functions at the top level
 from .affine import AffineRegistration
-from .metrics import LNCC, MSE, NCC, CombinedLoss, Dice, MattesMI
 from .rdmm import RDMMRegistration
-from .utils import (
-    load_image,
-    resample_image,
-    save_image,
-    sitk_displacement_to_torch_deformation,
-    sitk_transform_to_torch_affine,
-    torch_affine_to_sitk_transform,
-    torch_deformation_to_sitk_field,
-    torch_deformation_to_sitk_transform,
-)
 
 __all__ = [
+    # Essential registration classes (top-level access)
     "AffineRegistration",
     "RDMMRegistration",
-    "NCC",
-    "LNCC",
-    "MSE",
-    "MattesMI",
-    "Dice",
-    "CombinedLoss",
-    "load_image",
-    "save_image",
-    "resample_image",
-    "torch_affine_to_sitk_transform",
-    "torch_deformation_to_sitk_transform",
-    "torch_deformation_to_sitk_field",
-    "sitk_transform_to_torch_affine",
-    "sitk_displacement_to_torch_deformation",
+    # Submodules (for organized access: torchregister.metrics.NCC, etc.)
+    "affine",
+    "base",
+    "conversion",
+    "io",
+    "metrics",
+    "rdmm",
+    "transforms",
+    "utils",
 ]

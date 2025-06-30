@@ -10,7 +10,7 @@ import numpy as np
 import torch
 
 from torchregister import RDMMRegistration
-from torchregister.utils import apply_deformation
+from torchregister.transforms import apply_deformation
 
 
 def create_synthetic_multimodal_data():

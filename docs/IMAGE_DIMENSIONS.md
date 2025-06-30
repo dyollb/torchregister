@@ -107,7 +107,7 @@ primary_deformation = reg.register(t1_fixed.unsqueeze(0).unsqueeze(0),
                                   t1_moving.unsqueeze(0).unsqueeze(0))
 
 # Apply same deformation to all modalities
-from torchregister.utils import apply_deformation
+from torchregister.transforms import apply_deformation
 t1_registered = apply_deformation(t1_moving.unsqueeze(0).unsqueeze(0), primary_deformation)
 t2_registered = apply_deformation(t2_moving.unsqueeze(0).unsqueeze(0), primary_deformation)
 ```
@@ -159,7 +159,7 @@ grid_3d = create_grid((32, 64, 64))  # [32, 64, 64, 3]
 ```python
 import torch
 from torchregister import RDMMRegistration
-from torchregister.utils import apply_deformation
+from torchregister.transforms import apply_deformation
 import SimpleITK as sitk
 
 # Load multi-modal data

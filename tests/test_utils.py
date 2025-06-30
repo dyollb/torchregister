@@ -10,7 +10,15 @@ import pytest
 import SimpleITK as sitk
 import torch
 
-from torchregister.utils import (
+from torchregister.io import (
+    load_image,
+    normalize_image,
+    resample_image,
+    save_image,
+    sitk_to_torch,
+    torch_to_sitk,
+)
+from torchregister.transforms import (
     apply_deformation,
     apply_transform,
     compose_transforms,
@@ -18,12 +26,6 @@ from torchregister.utils import (
     compute_target_registration_error,
     create_grid,
     create_identity_transform,
-    load_image,
-    normalize_image,
-    resample_image,
-    save_image,
-    sitk_to_torch,
-    torch_to_sitk,
 )
 
 

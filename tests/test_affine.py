@@ -7,7 +7,7 @@ import torch
 
 from torchregister.affine import AffineRegistration, AffineTransform
 from torchregister.metrics import MSE, NCC
-from torchregister.utils import apply_transform, create_grid
+from torchregister.transforms import apply_transform, create_grid
 
 
 class TestAffineTransform:

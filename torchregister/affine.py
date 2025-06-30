@@ -14,7 +14,7 @@ import torch.optim as optim
 
 from .base import BaseRegistration
 from .metrics import MSE, NCC, BaseLoss
-from .utils import apply_transform, create_grid
+from .transforms import apply_transform, create_grid
 
 
 class AffineTransform(nn.Module):
