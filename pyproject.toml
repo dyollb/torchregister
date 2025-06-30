@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torchregister"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Multi-scale affine and deformable registration using PyTorch"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -46,6 +46,9 @@ dev = [
 Homepage = "https://github.com/dyollb/torchregister"
 Repository = "https://github.com/dyollb/torchregister"
 Issues = "https://github.com/dyollb/torchregister/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "torchregister.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -1,12 +1,9 @@
 """
 Utility functions for image I/O and transformations.
 
-This module provides functions for converting between SimpleITK and PyTorch,
-creating coordinate grids, and applying transformations.
+This module aggregates functions from submodules io, conversion, and transforms.
 """
 
-# Import from io.py
-# Import from conversion.py
 from .conversion import (
     sitk_displacement_to_torch_deformation,
     sitk_transform_to_torch_affine,
@@ -22,8 +19,6 @@ from .io import (
     sitk_to_torch,
     torch_to_sitk,
 )
-
-# Import from transforms.py
 from .transforms import (
     apply_deformation,
     apply_transform,
