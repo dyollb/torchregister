@@ -122,8 +122,9 @@ def run_affine_registration_example():
 
     # Initialize registration
     print("\n2. Setting up affine registration...")
+    ncc = NCC()
     registration = AffineRegistration(
-        similarity_metric="ncc",
+        similarity_metric=ncc,
         num_scales=3,
         num_iterations=[100, 150, 200],
         learning_rate=0.01,

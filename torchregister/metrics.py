@@ -10,16 +10,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class BaseLoss(nn.Module):
+class RegistrationLoss(nn.Module):
     """
     Base class for all registration loss functions.
 
     All loss functions should inherit from this class and implement the forward method.
     """
 
-    def __init__(self) -> None:
-        """Initialize the base loss class."""
+    def __init__(self, name: str = "RegistrationLoss") -> None:
         super().__init__()
+        self.name = name
 
     def forward(self, fixed: torch.Tensor, moving: torch.Tensor) -> torch.Tensor:
         """
@@ -28,15 +28,26 @@ class BaseLoss(nn.Module):
         Args:
             fixed: Fixed image tensor
             moving: Moving image tensor
-            **kwargs: Additional arguments specific to the loss function
 
         Returns:
             Loss value (lower is better for optimization)
         """
         raise NotImplementedError("Subclasses must implement the forward method")
 
+    def __call__(self, fixed: torch.Tensor, moving: torch.Tensor) -> torch.Tensor:
+        """Make the loss callable."""
+        return self.forward(fixed, moving)
 
-class NCC(BaseLoss):
+    def __str__(self) -> str:
+        """String representation of the loss."""
+        return self.name
+
+    def __repr__(self) -> str:
+        """Detailed string representation of the loss."""
+        return f"{self.__class__.__name__}(name='{self.name}')"
+
+
+class NCC(RegistrationLoss):
     """
     Normalized Cross-Correlation (NCC) loss.
 
@@ -49,7 +60,7 @@ class NCC(BaseLoss):
         Args:
             eps: Small value to avoid division by zero
         """
-        super().__init__()
+        super().__init__("ncc")
         self.eps = eps
 
     def forward(self, fixed: torch.Tensor, moving: torch.Tensor) -> torch.Tensor:
@@ -57,7 +68,6 @@ class NCC(BaseLoss):
         Args:
             fixed: Fixed image tensor [B, C, H, W] or [B, C, D, H, W]
             moving: Moving image tensor [B, C, H, W] or [B, C, D, H, W]
-            **kwargs: Additional arguments (unused in this loss)
 
         Returns:
             Negative NCC loss (lower is better)
@@ -88,7 +98,7 @@ class NCC(BaseLoss):
         return -ncc.mean()
 
 
-class LNCC(BaseLoss):
+class LNCC(RegistrationLoss):
     """
     Local Normalized Cross-Correlation (LNCC) loss.
 
@@ -102,7 +112,7 @@ class LNCC(BaseLoss):
             window_size: Size of the local window
             eps: Small value to avoid division by zero
         """
-        super().__init__()
+        super().__init__("lncc")
         self.window_size = window_size
         self.eps = eps
 
@@ -123,7 +133,6 @@ class LNCC(BaseLoss):
         Args:
             fixed: Fixed image tensor [B, C, H, W]
             moving: Moving image tensor [B, C, H, W]
-            **kwargs: Additional arguments (unused in this loss)
 
         Returns:
             Negative LNCC loss (lower is better)
@@ -158,7 +167,7 @@ class LNCC(BaseLoss):
         return -lncc.mean()
 
 
-class MSE(BaseLoss):
+class MSE(RegistrationLoss):
     """
     Mean Squared Error (MSE) loss.
 
@@ -166,14 +175,13 @@ class MSE(BaseLoss):
     """
 
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__("mse")
 
     def forward(self, fixed: torch.Tensor, moving: torch.Tensor) -> torch.Tensor:
         """
         Args:
             fixed: Fixed image tensor
             moving: Moving image tensor
-            **kwargs: Additional arguments (unused in this loss)
 
         Returns:
             MSE loss
@@ -181,7 +189,7 @@ class MSE(BaseLoss):
         return F.mse_loss(fixed, moving)
 
 
-class MattesMI(BaseLoss):
+class MattesMI(RegistrationLoss):
     """
     Mattes Mutual Information (MI) loss.
 
@@ -195,7 +203,7 @@ class MattesMI(BaseLoss):
             bins: Number of histogram bins
             sigma: Gaussian kernel standard deviation for Parzen windowing
         """
-        super().__init__()
+        super().__init__("mattes_mi")
         self.bins = bins
         self.sigma = sigma
 
@@ -246,7 +254,6 @@ class MattesMI(BaseLoss):
         Args:
             fixed: Fixed image tensor
             moving: Moving image tensor
-            **kwargs: Additional arguments (unused in this loss)
 
         Returns:
             Negative mutual information (lower is better)
@@ -276,7 +283,7 @@ class MattesMI(BaseLoss):
         return -mi
 
 
-class Dice(BaseLoss):
+class Dice(RegistrationLoss):
     """
     Dice coefficient loss for segmentation overlap.
 
@@ -289,7 +296,7 @@ class Dice(BaseLoss):
         Args:
             smooth: Smoothing factor to avoid division by zero
         """
-        super().__init__()
+        super().__init__("dice")
         self.smooth = smooth
 
     def forward(self, fixed: torch.Tensor, moving: torch.Tensor) -> torch.Tensor:
@@ -297,7 +304,6 @@ class Dice(BaseLoss):
         Args:
             fixed: Fixed image tensor (typically target segmentation)
             moving: Moving image tensor (typically registered moving segmentation)
-            **kwargs: Additional arguments (unused in this loss)
 
         Returns:
             Dice loss (1 - Dice coefficient)
@@ -317,7 +323,7 @@ class Dice(BaseLoss):
         return torch.tensor(1.0, device=dice.device, dtype=dice.dtype) - dice
 
 
-class CombinedLoss(BaseLoss):
+class CombinedLoss(RegistrationLoss):
     """
     Combines multiple loss functions with weights.
 
@@ -330,7 +336,7 @@ class CombinedLoss(BaseLoss):
             losses: Dictionary of loss functions
             weights: Dictionary of weights for each loss
         """
-        super().__init__()
+        super().__init__("combined_loss")
         self.losses = nn.ModuleDict(losses)
         self.weights = weights
 

@@ -362,13 +362,17 @@ class TestTransformIntegration:
     def test_affine_registration_to_sitk(self, device, create_test_image_2d):
         """Test converting affine registration result to SimpleITK."""
         from torchregister import AffineRegistration
+        from torchregister.metrics import MSE
 
         # Create test images
         fixed = create_test_image_2d()
         moving = create_test_image_2d()
 
         # Run registration
-        reg = AffineRegistration(num_iterations=[5])  # Quick test
+        mse = MSE()
+        reg = AffineRegistration(
+            similarity_metric=mse, num_iterations=[5]
+        )  # Quick test
         transform_matrix, _ = reg.register(fixed, moving)
 
         # Convert to SimpleITK
@@ -381,6 +385,7 @@ class TestTransformIntegration:
     def test_rdmm_registration_to_sitk(self, device, create_test_image_2d):
         """Test converting RDMM registration result to SimpleITK."""
         from torchregister import RDMMRegistration
+        from torchregister.metrics import MSE
 
         # Create test images and reference
         fixed = create_test_image_2d()
@@ -392,7 +397,10 @@ class TestTransformIntegration:
         reference.SetOrigin([0.0, 0.0])
 
         # Run registration
-        reg = RDMMRegistration(num_iterations=[3], num_scales=1)  # Quick test
+        mse = MSE()
+        reg = RDMMRegistration(
+            similarity_metric=mse, num_iterations=[3], num_scales=1
+        )  # Quick test
         deformation_field, _ = reg.register(fixed, moving)
 
         # Convert to SimpleITK

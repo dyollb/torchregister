@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.optim as optim
 
 from .base import BaseRegistration
-from .metrics import MSE, NCC, BaseLoss
+from .metrics import MSE, NCC, RegistrationLoss
 from .transforms import apply_transform, create_grid
 
 
@@ -93,7 +93,7 @@ class AffineRegistration(BaseRegistration):
 
     def __init__(
         self,
-        similarity_metric: BaseLoss | str = "ncc",
+        similarity_metric: RegistrationLoss,
         num_scales: int = 3,
         num_iterations: list[int] | None = None,
         learning_rate: float = 0.01,
@@ -102,7 +102,7 @@ class AffineRegistration(BaseRegistration):
     ):
         """
         Args:
-            similarity_metric: Similarity metric (BaseLoss instance or "ncc", "mse")
+            similarity_metric: RegistrationLoss instance for computing similarity
             num_scales: Number of pyramid scales
             num_iterations: Iterations per scale (default: [100, 200, 300])
             learning_rate: Optimizer learning rate

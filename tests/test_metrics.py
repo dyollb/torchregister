@@ -5,15 +5,23 @@ Tests for metrics module (loss functions).
 import pytest
 import torch
 
-from torchregister.metrics import LNCC, MSE, NCC, BaseLoss, CombinedLoss, Dice, MattesMI
+from torchregister.metrics import (
+    LNCC,
+    MSE,
+    NCC,
+    CombinedLoss,
+    Dice,
+    MattesMI,
+    RegistrationLoss,
+)
 
 
 class TestBaseLoss:
-    """Test the BaseLoss class."""
+    """Test the RegistrationLoss class."""
 
     def test_base_loss_is_abstract(self):
-        """Test that BaseLoss is abstract and requires forward implementation."""
-        base_loss = BaseLoss()
+        """Test that RegistrationLoss is abstract and requires forward implementation."""
+        base_loss = RegistrationLoss()
         with pytest.raises(
             NotImplementedError, match="Subclasses must implement the forward method"
         ):
@@ -272,7 +280,7 @@ class TestCombinedLoss:
 
         combined = CombinedLoss(losses, weights)
         assert isinstance(combined, CombinedLoss)
-        assert isinstance(combined, BaseLoss)
+        assert isinstance(combined, RegistrationLoss)
 
     def test_combined_loss_computation(self, device):
         """Test combined loss computation."""

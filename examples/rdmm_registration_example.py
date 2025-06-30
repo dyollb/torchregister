@@ -173,8 +173,9 @@ def run_rdmm_registration_example():
 
     # Initialize RDMM registration
     print("\n2. Setting up RDMM registration...")
+    lncc = LNCC()
     registration = RDMMRegistration(
-        similarity_metric="lncc",
+        similarity_metric=lncc,
         num_scales=3,
         num_iterations=[30, 50, 80],
         learning_rate=0.01,

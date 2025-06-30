@@ -15,7 +15,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from .base import BaseRegistration
-from .metrics import MSE, NCC, BaseLoss
+from .metrics import MSE, NCC, RegistrationLoss
 from .transforms import apply_deformation, create_grid
 
 
@@ -113,7 +113,7 @@ class RDMMRegistration(BaseRegistration):
 
     def __init__(
         self,
-        similarity_metric: BaseLoss | str = "lncc",
+        similarity_metric: RegistrationLoss,
         num_scales: int = 3,
         num_iterations: list[int] | None = None,
         learning_rate: float = 0.01,
@@ -124,7 +124,7 @@ class RDMMRegistration(BaseRegistration):
     ):
         """
         Args:
-            similarity_metric: Similarity metric (BaseLoss instance or "ncc", "lncc", "mse")
+            similarity_metric: Similarity metric (RegistrationLoss instance or "ncc", "lncc", "mse")
             num_scales: Number of pyramid scales
             num_iterations: Iterations per scale
             learning_rate: Optimizer learning rate

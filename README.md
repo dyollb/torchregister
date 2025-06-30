@@ -36,13 +36,15 @@ pip install -e ".[dev]"
 ```python
 import torchregister
 import SimpleITK as sitk
+from torchregister.metrics import NCC
 
 # Load images
 fixed_image = sitk.ReadImage("fixed.nii.gz")
 moving_image = sitk.ReadImage("moving.nii.gz")
 
 # Initialize affine registration
-affine_reg = torchregister.AffineRegistration()
+ncc = NCC()
+affine_reg = torchregister.AffineRegistration(similarity_metric=ncc)
 
 # Perform registration
 transform, registered_image = affine_reg.register(fixed_image, moving_image)
@@ -51,8 +53,11 @@ transform, registered_image = affine_reg.register(fixed_image, moving_image)
 ### Deformable Registration (RDMM)
 
 ```python
+from torchregister.metrics import LNCC
+
 # Initialize RDMM registration
-rdmm_reg = torchregister.RDMMRegistration()
+lncc = LNCC()
+rdmm_reg = torchregister.RDMMRegistration(similarity_metric=lncc)
 
 # Perform registration
 deformation_field, registered_image = rdmm_reg.register(fixed_image, moving_image)
