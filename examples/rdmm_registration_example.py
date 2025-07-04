@@ -176,7 +176,8 @@ def run_rdmm_registration_example():
     lncc = LNCC()
     registration = RDMMRegistration(
         similarity_metric=lncc,
-        num_scales=3,
+        shrink_factors=[4, 2, 1],
+        smoothing_sigmas=[2.0, 1.0, 0.0],
         num_iterations=[30, 50, 80],
         learning_rate=0.01,
         smoothing_sigma=1.5,

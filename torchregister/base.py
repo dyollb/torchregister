@@ -14,6 +14,7 @@ import torch.nn.functional as F
 
 from .io import sitk_to_torch
 from .metrics import RegistrationLoss
+from .processing import gaussian_blur
 
 
 class BaseRegistration:
@@ -28,7 +29,8 @@ class BaseRegistration:
         self,
         similarity_metric: RegistrationLoss,
         interp_mode: str = "bilinear",
-        num_scales: int = 3,
+        shrink_factors: list[int] | None = None,
+        smoothing_sigmas: list[float] | None = None,
         num_iterations: list[int] | None = None,
         learning_rate: float = 0.01,
         regularization_weight: float = 0.0,
@@ -40,15 +42,18 @@ class BaseRegistration:
         Args:
             similarity_metric: RegistrationLoss instance for computing similarity
             interp_mode: Mode used in grid_sample (e.g., "bilinear", "nearest")
-            num_scales: Number of pyramid scales for multi-scale registration
+            shrink_factors: List of downsample factors per scale (e.g., [8, 4, 2, 1])
+            smoothing_sigmas: List of Gaussian smoothing sigmas in pixel units per scale
             num_iterations: List of iterations per scale (finest to coarsest)
             learning_rate: Optimizer learning rate
             regularization_weight: Weight for regularization term
             device: PyTorch device
         """
         self.interp_mode = interp_mode
-        self.num_scales = num_scales
-        self.num_iterations = num_iterations or [100, 200, 300]
+        self.shrink_factors = shrink_factors or [4, 2, 1]
+        self.smoothing_sigmas = smoothing_sigmas or [2.0, 1.0, 0.0]
+        self.num_scales = len(self.shrink_factors)
+        self.num_iterations = num_iterations or [100, 100, 100]
         self.learning_rate = learning_rate
         self.regularization_weight = regularization_weight
         self.device = device or torch.device(
@@ -64,32 +69,51 @@ class BaseRegistration:
             )
         self.loss_fn = similarity_metric
 
-    def _create_pyramid(
-        self, image: torch.Tensor, num_scales: int
-    ) -> list[torch.Tensor]:
+        # Validate that shrink_factors and smoothing_sigmas have the same length
+        if len(self.shrink_factors) != len(self.smoothing_sigmas):
+            raise ValueError(
+                f"shrink_factors and smoothing_sigmas must have the same length. "
+                f"Got {len(self.shrink_factors)} and {len(self.smoothing_sigmas)} respectively."
+            )
+
+    def _create_pyramid(self, image: torch.Tensor) -> list[torch.Tensor]:
         """
         Create image pyramid for multi-scale registration.
 
         Args:
             image: Input image tensor
-            num_scales: Number of scales in the pyramid
 
         Returns:
             List of image tensors from coarse to fine resolution
         """
-        pyramid = [image]
+        pyramid = []
 
-        current = image
-        for _i in range(num_scales - 1):
-            # Downsample by factor of 2
-            if len(current.shape) == 4:  # 2D: [B, C, H, W]
-                current = F.avg_pool2d(current, kernel_size=2, stride=2)
-            else:  # 3D: [B, C, D, H, W]
-                current = F.avg_pool3d(current, kernel_size=2, stride=2)
+        for shrink_factor, sigma in zip(
+            self.shrink_factors, self.smoothing_sigmas, strict=False
+        ):
+            current = image
+
+            # Apply smoothing if sigma > 0
+            if sigma > 0:
+                kernel_size = int(6 * sigma + 1)  # 6-sigma rule for better coverage
+                if kernel_size % 2 == 0:
+                    kernel_size += 1
+                current = gaussian_blur(current, kernel_size, sigma)
+
+            # Downsample to the target shrink factor
+            if shrink_factor > 1:
+                if len(current.shape) == 4:  # 2D: [B, C, H, W]
+                    current = F.avg_pool2d(
+                        current, kernel_size=shrink_factor, stride=shrink_factor
+                    )
+                else:  # 3D: [B, C, D, H, W]
+                    current = F.avg_pool3d(
+                        current, kernel_size=shrink_factor, stride=shrink_factor
+                    )
+
             pyramid.append(current)
 
-        # Return pyramid from coarse to fine
-        return pyramid[::-1]
+        return pyramid
 
     def _prepare_input_tensors(
         self,

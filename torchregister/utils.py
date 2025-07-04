@@ -13,11 +13,14 @@ from .conversion import (
 )
 from .io import (
     load_image,
-    normalize_image,
-    resample_image,
     save_image,
     sitk_to_torch,
     torch_to_sitk,
+)
+from .processing import (
+    gaussian_blur,
+    normalize_image,
+    resample_image,
 )
 from .transforms import (
     apply_deformation,
@@ -32,11 +35,13 @@ from .transforms import (
 __all__ = [
     # From io.py
     "load_image",
-    "normalize_image",
-    "resample_image",
     "save_image",
     "sitk_to_torch",
     "torch_to_sitk",
+    # From processing.py
+    "gaussian_blur",
+    "normalize_image",
+    "resample_image",
     # From transforms.py
     "apply_deformation",
     "apply_transform",

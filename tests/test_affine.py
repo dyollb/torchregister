@@ -100,7 +100,8 @@ class TestAffineRegistration:
         ncc = NCC()
         reg = AffineRegistration(
             similarity_metric=ncc,
-            num_scales=2,
+            shrink_factors=[4, 2],
+            smoothing_sigmas=[2.0, 1.0],
             num_iterations=[50, 100],
             learning_rate=0.05,
         )
@@ -115,7 +116,8 @@ class TestAffineRegistration:
         ncc = NCC()
         reg = AffineRegistration(
             similarity_metric=ncc,
-            num_scales=2,
+            shrink_factors=[4, 2],
+            smoothing_sigmas=[2.0, 1.0],
             num_iterations=[50, 100],
             learning_rate=0.05,
         )
@@ -142,14 +144,18 @@ class TestAffineRegistration:
     def test_pyramid_creation_2d(self, device, create_test_image_2d):
         """Test image pyramid creation for 2D images."""
         mse = MSE()
-        reg = AffineRegistration(similarity_metric=mse, num_scales=3)
+        reg = AffineRegistration(
+            similarity_metric=mse,
+            shrink_factors=[4, 2, 1],
+            smoothing_sigmas=[2.0, 1.0, 0.0],
+        )
 
         # Create test image
         image = (
             create_test_image_2d().unsqueeze(0).unsqueeze(0)
         )  # Add batch and channel dims
 
-        pyramid = reg._create_pyramid(image, num_scales=3)
+        pyramid = reg._create_pyramid(image)
 
         assert len(pyramid) == 3
         # Check that each level is smaller than the previous
@@ -164,14 +170,16 @@ class TestAffineRegistration:
     def test_pyramid_creation_3d(self, device, create_test_image_3d):
         """Test image pyramid creation for 3D images."""
         mse = MSE()
-        reg = AffineRegistration(similarity_metric=mse, num_scales=2)
+        reg = AffineRegistration(
+            similarity_metric=mse, shrink_factors=[4, 2], smoothing_sigmas=[2.0, 1.0]
+        )
 
         # Create test image
         image = (
             create_test_image_3d().unsqueeze(0).unsqueeze(0)
         )  # Add batch and channel dims
 
-        pyramid = reg._create_pyramid(image, num_scales=2)
+        pyramid = reg._create_pyramid(image)
 
         assert len(pyramid) == 2
         # Check that second level is smaller
@@ -201,7 +209,8 @@ class TestAffineRegistration:
         mse = MSE()
         reg = AffineRegistration(
             similarity_metric=mse,
-            num_scales=1,
+            shrink_factors=[1],
+            smoothing_sigmas=[0.0],
             num_iterations=[10],  # Few iterations for speed
             learning_rate=0.1,
         )
@@ -228,7 +237,8 @@ class TestAffineRegistration:
         mse = MSE()
         reg = AffineRegistration(
             similarity_metric=mse,
-            num_scales=1,
+            shrink_factors=[1],
+            smoothing_sigmas=[0.0],
             num_iterations=[20],
             learning_rate=0.1,
         )
@@ -268,7 +278,10 @@ class TestAffineRegistration:
         """Test registration with initial transformation."""
         mse = MSE()
         reg = AffineRegistration(
-            similarity_metric=mse, num_scales=1, num_iterations=[5]
+            similarity_metric=mse,
+            shrink_factors=[1],
+            smoothing_sigmas=[0.0],
+            num_iterations=[5],
         )
 
         fixed = create_test_image_2d(noise_level=0.0)
@@ -307,7 +320,10 @@ class TestAffineRegistration:
         """Test registration with PyTorch tensor inputs."""
         mse = MSE()
         reg = AffineRegistration(
-            similarity_metric=mse, num_scales=1, num_iterations=[5]
+            similarity_metric=mse,
+            shrink_factors=[1],
+            smoothing_sigmas=[0.0],
+            num_iterations=[5],
         )
 
         fixed = create_test_image_2d()
@@ -323,7 +339,10 @@ class TestAffineRegistration:
         """Test multi-scale registration."""
         mse = MSE()
         reg = AffineRegistration(
-            similarity_metric=mse, num_scales=3, num_iterations=[5, 5, 5]
+            similarity_metric=mse,
+            shrink_factors=[4, 2, 1],
+            smoothing_sigmas=[2.0, 1.0, 0.0],
+            num_iterations=[5, 5, 5],
         )
 
         fixed = create_test_image_2d()
@@ -345,7 +364,8 @@ class TestAffineRegistrationIntegration:
         mse = MSE()
         reg = AffineRegistration(
             similarity_metric=mse,
-            num_scales=2,
+            shrink_factors=[4, 2],
+            smoothing_sigmas=[2.0, 1.0],
             num_iterations=[50, 100],
             learning_rate=0.01,
         )
@@ -383,7 +403,10 @@ class TestAffineRegistrationIntegration:
 
         for metric in metrics:
             reg = AffineRegistration(
-                similarity_metric=metric, num_scales=1, num_iterations=[10]
+                similarity_metric=metric,
+                shrink_factors=[1],
+                smoothing_sigmas=[0.0],
+                num_iterations=[10],
             )
 
             transform_matrix, registered = reg.register(fixed, moving)
@@ -400,7 +423,10 @@ class TestAffineRegistrationIntegration:
 
         for metric in metrics:
             reg = AffineRegistration(
-                similarity_metric=metric, num_scales=1, num_iterations=[10]
+                similarity_metric=metric,
+                shrink_factors=[1],
+                smoothing_sigmas=[0.0],
+                num_iterations=[10],
             )
 
             transform_matrix, registered = reg.register(fixed, moving)
@@ -415,7 +441,8 @@ class TestAffineRegistrationIntegration:
         ncc = NCC()  # NCC is more robust to noise
         reg = AffineRegistration(
             similarity_metric=ncc,
-            num_scales=2,
+            shrink_factors=[4, 2],
+            smoothing_sigmas=[2.0, 1.0],
             num_iterations=[30, 50],
             regularization_weight=0.1,
         )
