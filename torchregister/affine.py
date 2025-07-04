@@ -10,6 +10,7 @@ from typing import Any
 import SimpleITK as sitk
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 
 from .base import BaseRegistration
@@ -25,7 +26,7 @@ class AffineTransform(nn.Module):
     that can be optimized via gradient descent.
     """
 
-    def __init__(self, ndim: int = 3, init_identity: bool = True):
+    def __init__(self, ndim: int = 3, init_matrix: torch.Tensor | None = None):
         """
         Args:
             ndim: Number of spatial dimensions (2 or 3)
@@ -34,48 +35,44 @@ class AffineTransform(nn.Module):
         super().__init__()
         self.ndim = ndim
 
-        if ndim == 2:
-            # 2D affine: [2x3] matrix
-            if init_identity:
-                matrix = torch.eye(2, 3)
+        if ndim in (2, 3):
+            if init_matrix is None:
+                matrix = torch.eye(ndim, ndim + 1)
             else:
-                matrix = torch.randn(2, 3) * 0.1
-        elif ndim == 3:
-            # 3D affine: [3x4] matrix
-            if init_identity:
-                matrix = torch.eye(3, 4)
-            else:
-                matrix = torch.randn(3, 4) * 0.1
+                matrix = init_matrix.detach().clone()
         else:
             raise ValueError(f"Unsupported ndim: {ndim}")
 
         self.matrix = nn.Parameter(matrix)
 
-    def forward(self, grid: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        image: torch.Tensor,
+        sample_mode: str = "bilinear",
+        padding_mode="border",
+        align_corners=True,
+    ) -> torch.Tensor:
         """
-        Apply affine transformation to coordinate grid.
+        Apply affine transformation to image
 
         Args:
-            grid: Coordinate grid [..., ndim]
+            image: [B, C, H, W] or [B, C, D, H, W]
+            sample_mode: Interpolation mode ('bilinear', 'nearest', etc.)
+            padding_mode: Padding mode for out-of-bounds pixels ('zeros', 'border', etc.)
+            align_corners: Whether to align corners in grid sampling
 
         Returns:
-            Transformed coordinates
+            Transformed image
         """
-        # Add homogeneous coordinate
-        if self.ndim == 2:
-            ones = torch.ones(*grid.shape[:-1], 1, device=grid.device)
-            grid_homo = torch.cat([grid, ones], dim=-1)  # [..., 3]
-        else:  # ndim == 3
-            ones = torch.ones(*grid.shape[:-1], 1, device=grid.device)
-            grid_homo = torch.cat([grid, ones], dim=-1)  # [..., 4]
-
-        # Apply transformation: grid_homo @ matrix.T
-        transformed = torch.matmul(grid_homo, self.matrix.T)
-
-        return transformed
+        shape = image.shape[2:]
+        grid = F.affine_grid(
+            self.matrix, [len(image), self.ndim, *shape], align_corners
+        )
+        return F.grid_sample(image, grid, sample_mode, padding_mode, align_corners)
 
     def get_matrix(self) -> torch.Tensor:
         """Get the current transformation matrix."""
+        # TODO: should we clone here?
         return self.matrix.clone()
 
     def set_matrix(self, matrix: torch.Tensor) -> None:
@@ -173,7 +170,7 @@ class AffineRegistration(BaseRegistration):
             # Track best transformation
             if total_loss.item() < best_loss:
                 best_loss = total_loss.item()
-                best_transform = AffineTransform(transform.ndim, init_identity=False)
+                best_transform = AffineTransform(transform.ndim)
                 best_transform.set_matrix(transform.get_matrix().detach().clone())
 
             if iteration % 20 == 0:
@@ -216,7 +213,7 @@ class AffineRegistration(BaseRegistration):
         moving_pyramid = self._create_pyramid(moving)
 
         # Initialize transformation
-        transform = AffineTransform(ndim=ndim, init_identity=True).to(self.device)
+        transform = AffineTransform(ndim=ndim).to(self.device)
 
         if initial_transform is not None:
             transform.set_matrix(initial_transform)
@@ -281,8 +278,9 @@ class AffineRegistration(BaseRegistration):
         fixed, moving, _ = self._prepare_input_tensors(fixed_image, moving_image)
 
         # Apply transformation
-        transform = AffineTransform(ndim=len(fixed.shape) - 2, init_identity=False)
-        transform.set_matrix(transform_matrix)
+        transform = AffineTransform(
+            ndim=len(fixed.shape) - 2, init_matrix=transform_matrix
+        )
 
         grid = create_grid(fixed.shape[2:], device=self.device)
         transformed_grid = transform(grid)

@@ -104,10 +104,9 @@ def apply_transform(
         raise ValueError(f"Unsupported image shape: {original_shape}")
 
     # Validate grid dimensions
-    expected_grid_coords = 2 if ndim == 2 else 3
-    if transformed_grid.shape[-1] != expected_grid_coords:
+    if transformed_grid.shape[-1] != ndim:
         raise ValueError(
-            f"Grid last dimension should be {expected_grid_coords} for {ndim}D images, got {transformed_grid.shape[-1]}"
+            f"Grid last dimension should be {ndim} for {ndim}D images, got {transformed_grid.shape[-1]}"
         )
 
     if ndim == 2:  # 2D
@@ -141,9 +140,7 @@ def apply_transform(
         )
 
     # Restore original shape if needed
-    if len(original_shape) == 2:
-        warped = warped.squeeze(0).squeeze(0)
-    elif len(original_shape) == 3:
+    if len(original_shape) in (2, 3):
         warped = warped.squeeze(0).squeeze(0)
 
     return warped
