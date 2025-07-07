@@ -129,11 +129,18 @@ class LNCC(RegistrationLoss):
         Returns:
             Negative LNCC loss (lower is better)
         """
-        ndim = len(fixed.shape[2:])
+        B, C = fixed.shape[:2]
+        spatial_dims = fixed.shape[2:]
+        ndim = len(spatial_dims)
+
         conv = F.conv3d if ndim == 3 else F.conv2d
-        kernel = torch.ones(
-            [*moving.shape[:2]] + ndim * [self.window_size], device=moving.device
-        )
+        kernel = torch.ones([1, 1] + ndim * [self.window_size], device=moving.device)
+        kernel = kernel / kernel.numel()
+
+        # Reshape to [B * C, 1, ...]
+        fixed = fixed.view(B * C, 1, *spatial_dims)
+        moving = moving.view(B * C, 1, *spatial_dims)
+
         t_sum = conv(moving, kernel, padding=self.window_size // 2)
         p_sum = conv(fixed, kernel, padding=self.window_size // 2)
         t2_sum = conv(moving**2, kernel, padding=self.window_size // 2)
