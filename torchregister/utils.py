@@ -1,16 +1,9 @@
 """
 Utility functions for image I/O and transformations.
 
-This module aggregates functions from submodules io, conversion, and transforms.
+This module aggregates functions from submodules io, processing, and transforms.
 """
 
-from .conversion import (
-    sitk_displacement_to_torch_deformation,
-    sitk_transform_to_torch_affine,
-    torch_affine_to_sitk_transform,
-    torch_deformation_to_sitk_field,
-    torch_deformation_to_sitk_transform,
-)
 from .io import (
     load_image,
     save_image,
@@ -23,13 +16,9 @@ from .processing import (
     resample_image,
 )
 from .transforms import (
-    apply_deformation,
-    apply_transform,
-    compose_transforms,
-    compute_gradient,
-    compute_target_registration_error,
-    create_grid,
-    create_identity_transform,
+    invert_affine_transform,
+    to_homogeneous,
+    torch_affine_to_sitk_transform,
 )
 
 __all__ = [
@@ -43,17 +32,7 @@ __all__ = [
     "normalize_image",
     "resample_image",
     # From transforms.py
-    "apply_deformation",
-    "apply_transform",
-    "compose_transforms",
-    "compute_gradient",
-    "compute_target_registration_error",
-    "create_grid",
-    "create_identity_transform",
-    # From conversion.py
-    "sitk_displacement_to_torch_deformation",
-    "sitk_transform_to_torch_affine",
     "torch_affine_to_sitk_transform",
-    "torch_deformation_to_sitk_field",
-    "torch_deformation_to_sitk_transform",
+    "invert_affine_transform",
+    "to_homogeneous",
 ]

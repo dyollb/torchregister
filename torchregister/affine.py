@@ -10,77 +10,113 @@ from typing import Any
 import SimpleITK as sitk
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
+from tqdm import tqdm
 
 from .base import BaseRegistration
 from .metrics import MSE, NCC, RegistrationLoss
-from .transforms import apply_transform, create_grid
 
 
 class AffineTransform(nn.Module):
     """
     Learnable affine transformation matrix.
 
-    Parameterizes 2D/3D affine transformations using a transformation matrix
+    Parametrizes 2D/3D affine transformations using a transformation matrix
     that can be optimized via gradient descent.
     """
 
-    def __init__(self, ndim: int = 3, init_identity: bool = True):
+    def __init__(
+        self,
+        ndim: int = 3,
+        init_translation: torch.Tensor | None = None,
+        init_rotation: torch.Tensor | None = None,
+        init_zoom: torch.Tensor | None = None,
+        init_shear: torch.Tensor | None = None,
+    ):
         """
         Args:
             ndim: Number of spatial dimensions (2 or 3)
             init_identity: Whether to initialize as identity transform
         """
         super().__init__()
-        self.ndim = ndim
 
-        if ndim == 2:
-            # 2D affine: [2x3] matrix
-            if init_identity:
-                matrix = torch.eye(2, 3)
-            else:
-                matrix = torch.randn(2, 3) * 0.1
-        elif ndim == 3:
-            # 3D affine: [3x4] matrix
-            if init_identity:
-                matrix = torch.eye(3, 4)
-            else:
-                matrix = torch.randn(3, 4) * 0.1
-        else:
+        if ndim not in (2, 3):
             raise ValueError(f"Unsupported ndim: {ndim}")
 
-        self.matrix = nn.Parameter(matrix)
+        translation = (
+            torch.zeros(ndim)
+            if init_translation is None
+            else init_translation.detach().clone()
+        )
+        rotation = (
+            torch.eye(ndim) if init_rotation is None else init_rotation.detach().clone()
+        )
+        zoom = torch.ones(ndim) if init_zoom is None else init_zoom.detach().clone()
+        shear = torch.zeros(ndim) if init_shear is None else init_shear.detach().clone()
+        self.params = nn.ParameterList(
+            [
+                nn.Parameter(p, requires_grad=True)
+                for p in [translation, rotation, zoom, shear]
+            ]
+        )
 
-    def forward(self, grid: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        image: torch.Tensor,
+        sample_mode: str = "bilinear",
+        padding_mode: str = "border",
+        align_corners: bool = True,
+    ) -> torch.Tensor:
         """
-        Apply affine transformation to coordinate grid.
+        Apply affine transformation to image
 
         Args:
-            grid: Coordinate grid [..., ndim]
+            image: [B, C, H, W] or [B, C, D, H, W]
+            sample_mode: Interpolation mode ('bilinear', 'nearest', etc.)
+            padding_mode: Padding mode for out-of-bounds pixels ('zeros', 'border', etc.)
+            align_corners: Whether to align corners in grid sampling
 
         Returns:
-            Transformed coordinates
+            Transformed image
         """
-        # Add homogeneous coordinate
-        if self.ndim == 2:
-            ones = torch.ones(*grid.shape[:-1], 1, device=grid.device)
-            grid_homo = torch.cat([grid, ones], dim=-1)  # [..., 3]
-        else:  # ndim == 3
-            ones = torch.ones(*grid.shape[:-1], 1, device=grid.device)
-            grid_homo = torch.cat([grid, ones], dim=-1)  # [..., 4]
+        # Create affine grid
+        batch_size = image.shape[0]
+        matrix = self._compose_affine().expand(*[batch_size, -1, -1])
+        shape = image.shape[2:]
+        grid = F.affine_grid(
+            matrix, [1, len(shape), *shape], align_corners=align_corners
+        )
 
-        # Apply transformation: grid_homo @ matrix.T
-        transformed = torch.matmul(grid_homo, self.matrix.T)
+        # Apply transformation
+        return F.grid_sample(
+            image,
+            grid,
+            mode=sample_mode,
+            padding_mode=padding_mode,
+            align_corners=align_corners,
+        )
 
-        return transformed
+    def _compose_affine(self) -> torch.Tensor:
+        translation, rotation, zoom, shear = self.params
+        linear = torch.diag(zoom)
+        if len(zoom) == 3:
+            linear[0, 1:] = shear[:2]
+            linear[1, 2] = shear[2]
+        else:
+            linear[0, 1] = shear[0]
+        linear = rotation @ linear
+        return torch.cat([linear, translation.unsqueeze(-1)], dim=-1)
 
-    def get_matrix(self) -> torch.Tensor:
+    def get_affine(self, with_grad: bool = False) -> torch.Tensor:
         """Get the current transformation matrix."""
-        return self.matrix.clone()
+        affine = self._compose_affine()
+        return affine if with_grad else affine.detach()
 
-    def set_matrix(self, matrix: torch.Tensor) -> None:
-        """Set the transformation matrix."""
-        self.matrix.data = matrix.clone()
+    @property
+    def ndim(self) -> int:
+        """Get the number of spatial dimensions."""
+        return len(self.params[0])
 
 
 class AffineRegistration(BaseRegistration):
@@ -123,7 +159,7 @@ class AffineRegistration(BaseRegistration):
 
     def _regularization_loss(self, transform: AffineTransform) -> torch.Tensor:
         """Compute regularization loss to prevent large deformations."""
-        matrix = transform.get_matrix()
+        matrix = transform.get_affine(with_grad=True)
 
         # L2 regularization on deviation from identity
         if transform.ndim == 2:
@@ -138,54 +174,25 @@ class AffineRegistration(BaseRegistration):
         fixed: torch.Tensor,
         moving: torch.Tensor,
         transform: AffineTransform,
-        num_iterations: int,
-    ) -> AffineTransform:
-        """Register at a single scale."""
-        transform.train()
+        iterations: int,
+    ) -> None:
         optimizer = optim.Adam(transform.parameters(), lr=self.learning_rate)
-
-        # Create coordinate grid
-        grid = create_grid(fixed.shape[2:], device=self.device)
-
-        best_loss = float("inf")
-        best_transform = None
-
-        for iteration in range(num_iterations):
+        progress_bar = tqdm(range(iterations), disable=False)
+        for self.iter in progress_bar:
             optimizer.zero_grad()
-
-            # Apply transformation (create fresh grid each time to avoid autograd issues)
-            transformed_grid = transform(grid.detach())
-
-            # Sample moving image at transformed coordinates
-            warped_moving = apply_transform(moving, transformed_grid)
-
-            # Compute similarity loss
-            sim_loss = self.loss_fn(fixed, warped_moving)
-
-            # Add regularization
-            reg_loss = self._regularization_loss(transform)
-            total_loss = sim_loss + self.regularization_weight * reg_loss
-
-            # Backpropagation
-            total_loss.backward()
+            moved = transform(moving)
+            loss = self.loss_fn(moved, fixed)
+            progress_bar.set_description(
+                f"Shape: {[*fixed.shape]}; Dissimiliarity: {loss.item()}"
+            )
+            loss.backward()
             optimizer.step()
-
-            # Track best transformation
-            if total_loss.item() < best_loss:
-                best_loss = total_loss.item()
-                best_transform = AffineTransform(transform.ndim, init_identity=False)
-                best_transform.set_matrix(transform.get_matrix().detach().clone())
-
-            if iteration % 20 == 0:
-                print(f"Iteration {iteration}, Loss: {total_loss.item():.6f}")
-
-        return best_transform or transform
 
     def register(
         self,
         fixed_image: sitk.Image | torch.Tensor,
         moving_image: sitk.Image | torch.Tensor,
-        initial_transform: torch.Tensor | None = None,
+        initial_transform: AffineTransform | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Perform affine registration.
@@ -210,61 +217,50 @@ class AffineRegistration(BaseRegistration):
         """
         # Convert and prepare the input tensors
         fixed, moving, ndim = self._prepare_input_tensors(fixed_image, moving_image)
+        interp_mode = "trilinear" if ndim == 3 else "bilinear"
+        moving_ = F.interpolate(
+            moving, fixed.shape[2:], mode=interp_mode, align_corners=True
+        )
 
         # Create image pyramids
         fixed_pyramid = self._create_pyramid(fixed)
-        moving_pyramid = self._create_pyramid(moving)
+        moving_pyramid = self._create_pyramid(moving_)
 
         # Initialize transformation
-        transform = AffineTransform(ndim=ndim, init_identity=True).to(self.device)
-
-        if initial_transform is not None:
-            transform.set_matrix(initial_transform)
+        transform = (
+            AffineTransform(ndim=ndim).to(self.device)
+            if initial_transform is None
+            else initial_transform.to(self.device)
+        )
 
         # Multi-scale registration
-        for scale in range(self.num_scales):
-            print(f"Scale {scale + 1}/{self.num_scales}")
+        for scale_idx in range(self.num_scales):
+            print(f"Scale {scale_idx + 1}/{self.num_scales}")
 
             # Access pyramid from coarse to fine
-            fixed_scale = fixed_pyramid[scale]
-            moving_scale = moving_pyramid[scale]
+            fixed_scale = fixed_pyramid[scale_idx]
+            moving_scale = moving_pyramid[scale_idx]
 
             # Adjust number of iterations for this scale
             scale_iterations = self.num_iterations[
-                min(scale, len(self.num_iterations) - 1)
+                min(scale_idx, len(self.num_iterations) - 1)
             ]
 
             # Register at this scale
-            transform = self._register_single_scale(
+            self._register_single_scale(
                 fixed_scale, moving_scale, transform, scale_iterations
             )
 
-            # If not the finest scale, scale transformation appropriately
-            if scale < self.num_scales - 1:
-                current_shrink = self.shrink_factors[scale]
-                next_shrink = self.shrink_factors[scale + 1]
-                scale_ratio = current_shrink / next_shrink
-
-                matrix = transform.get_matrix()
-                # Scale translation components
-                if ndim == 2:
-                    matrix[:, 2] *= scale_ratio
-                else:
-                    matrix[:, 3] *= scale_ratio
-                transform.set_matrix(matrix)
-
         # Apply final transformation to original moving image
-        grid = create_grid(fixed.shape[2:], device=self.device)
-        transformed_grid = transform(grid)
-        registered = apply_transform(moving, transformed_grid)
+        registered = transform(moving)
 
-        return transform.get_matrix(), registered.squeeze()
+        return transform.get_affine(), registered.squeeze()
 
     def evaluate(
         self,
         fixed_image: sitk.Image | torch.Tensor,
         moving_image: sitk.Image | torch.Tensor,
-        transform_matrix: torch.Tensor,
+        transform: AffineTransform,
     ) -> dict[str, Any]:
         """
         Evaluate registration quality.
@@ -281,12 +277,7 @@ class AffineRegistration(BaseRegistration):
         fixed, moving, _ = self._prepare_input_tensors(fixed_image, moving_image)
 
         # Apply transformation
-        transform = AffineTransform(ndim=len(fixed.shape) - 2, init_identity=False)
-        transform.set_matrix(transform_matrix)
-
-        grid = create_grid(fixed.shape[2:], device=self.device)
-        transformed_grid = transform(grid)
-        registered = apply_transform(moving, transformed_grid)
+        registered = transform(moving)
 
         # Compute metrics
         with torch.no_grad():
@@ -298,7 +289,7 @@ class AffineRegistration(BaseRegistration):
         metrics = {
             "ncc": -ncc_loss.item(),  # Convert back to positive
             "mse": mse_loss.item(),
-            "transformation_matrix": transform_matrix.cpu().detach().numpy(),
+            "transformation_matrix": transform.get_affine().cpu().detach().numpy(),
         }
 
         return metrics

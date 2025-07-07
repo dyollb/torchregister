@@ -20,17 +20,12 @@ def sitk_to_torch(image: sitk.Image) -> torch.Tensor:
         PyTorch tensor with shape [H, W] for 2D or [D, H, W] for 3D
 
     Note:
-        - SimpleITK uses (z, y, x) ordering, we convert to PyTorch's (D, H, W)
+        - SimpleITK GetArrayFromImage returns arrays in the same order as original
         - For registration, add batch and channel dimensions: [1, 1, D, H, W]
         - For multi-modal: stack modalities in channel dim: [1, C, D, H, W]
     """
     array = sitk.GetArrayFromImage(image)
     tensor = torch.from_numpy(array).float()
-
-    # SimpleITK uses (z, y, x) ordering, reverse for consistency
-    if len(tensor.shape) == 3:
-        tensor = tensor.flip(dims=[0])  # Flip z-axis for consistency
-
     return tensor
 
 

@@ -186,7 +186,7 @@ class BaseRegistration:
         self,
         fixed_image: sitk.Image | torch.Tensor,
         moving_image: sitk.Image | torch.Tensor,
-        transform: torch.Tensor,
+        transform: Any,
     ) -> dict[str, Any]:
         """
         Evaluate registration quality.

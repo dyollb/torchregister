@@ -7,7 +7,6 @@ import torch
 
 from torchregister.affine import AffineRegistration, AffineTransform
 from torchregister.metrics import MSE, NCC
-from torchregister.transforms import apply_transform, create_grid
 
 
 class TestAffineTransform:
@@ -15,81 +14,82 @@ class TestAffineTransform:
 
     def test_2d_identity_initialization(self, device):
         """Test 2D identity transform initialization."""
-        transform = AffineTransform(ndim=2, init_identity=True).to(device)
+        transform = AffineTransform(ndim=2).to(device)
 
         expected = torch.eye(2, 3, device=device)
-        assert torch.allclose(transform.matrix, expected)
+        assert torch.allclose(transform.get_affine(), expected)
 
     def test_3d_identity_initialization(self, device):
         """Test 3D identity transform initialization."""
-        transform = AffineTransform(ndim=3, init_identity=True).to(device)
+        transform = AffineTransform(ndim=3).to(device)
 
         expected = torch.eye(3, 4, device=device)
-        assert torch.allclose(transform.matrix, expected)
-
-    def test_2d_random_initialization(self, device):
-        """Test 2D random transform initialization."""
-        transform = AffineTransform(ndim=2, init_identity=False).to(device)
-
-        assert transform.matrix.shape == (2, 3)
-        # Should not be identity matrix
-        assert not torch.allclose(transform.matrix, torch.eye(2, 3, device=device))
+        assert torch.allclose(transform.get_affine(), expected)
 
     def test_2d_transform_application(self, device, tolerance):
         """Test applying 2D transformation to grid."""
-        transform = AffineTransform(ndim=2, init_identity=True).to(device)
+        transform = AffineTransform(ndim=2).to(device)
 
-        # Create small grid
-        grid = create_grid((4, 4), device=device)
+        # Create small image
+        image = torch.rand(10, 20, device=device).unsqueeze(0).unsqueeze(0)
 
         # Apply identity transform
-        transformed = transform(grid)
+        transformed = transform(image)
 
-        assert torch.allclose(grid, transformed, **tolerance)
+        assert torch.allclose(image, transformed, **tolerance)
 
     def test_3d_transform_application(self, device, tolerance):
         """Test applying 3D transformation to grid."""
-        transform = AffineTransform(ndim=3, init_identity=True).to(device)
+        transform = AffineTransform(ndim=3).to(device)
 
         # Create small grid
-        grid = create_grid((4, 4, 4), device=device)
+        image = torch.rand(4, 4, 4, device=device).unsqueeze(0).unsqueeze(0)
 
         # Apply identity transform
-        transformed = transform(grid)
+        transformed = transform(image)
 
-        assert torch.allclose(grid, transformed, **tolerance)
+        assert torch.allclose(image, transformed, **tolerance)
 
-    def test_translation_transform_2d(self, device, create_affine_transform_2d):
-        """Test 2D translation transformation."""
+    def test_translation_transform_2d(self, device):
+        """Test 2D translation transformation with a simple image."""
         # Create translation transform
         tx, ty = 0.2, -0.1
-        matrix = create_affine_transform_2d(tx=tx, ty=ty)
 
-        transform = AffineTransform(ndim=2, init_identity=False).to(device)
-        transform.set_matrix(matrix)
+        transform = AffineTransform(
+            ndim=2, init_translation=torch.as_tensor([tx, ty])
+        ).to(device)
 
-        # Create point at origin
-        origin = torch.tensor([[0.0, 0.0]], device=device)
+        # Create a simple image with a single foreground pixel at center
+        image_size = 21  # Odd size for clear center
+        center = image_size // 2
+        image = torch.zeros(image_size, image_size, device=device)
+        image[center, center] = 1.0
 
         # Apply transformation
-        transformed = transform(origin)
+        transformed = transform(image[None, None])
 
-        expected = torch.tensor([[tx, ty]], device=device)
-        assert torch.allclose(transformed, expected, atol=1e-4)
+        # Find the location of the maximum pixel in the transformed image
+        max_val, max_idx = torch.max(transformed.view(-1), dim=0)
+        max_row = max_idx // image_size
+        max_col = max_idx % image_size
 
-    def test_get_set_matrix(self, device, create_affine_transform_2d):
-        """Test getting and setting transformation matrix."""
-        transform = AffineTransform(ndim=2, init_identity=True).to(device)
+        # The affine_grid function creates an inverse transformation for sampling
+        # So the pixel should move in the opposite direction
+        # tx and ty are in normalized coordinates [-1, 1]
+        # Convert to pixel coordinates (note the inverse direction)
+        expected_col = center - (tx * image_size / 2)
+        expected_row = center - (ty * image_size / 2)
 
-        # Create new matrix
-        new_matrix = create_affine_transform_2d(tx=0.5, ty=-0.3, rotation=0.1)
+        # Allow for some interpolation error
+        assert abs(max_col.item() - expected_col) < 0.2, (
+            f"Column mismatch: {max_col.item()} vs {expected_col}"
+        )
+        assert abs(max_row.item() - expected_row) < 0.2, (
+            f"Row mismatch: {max_row.item()} vs {expected_row}"
+        )
 
-        # Set matrix
-        transform.set_matrix(new_matrix)
-
-        # Get matrix and compare
-        retrieved_matrix = transform.get_matrix()
-        assert torch.allclose(new_matrix, retrieved_matrix)
+        # Verify the maximum value is reasonable (should be close to 1.0)
+        assert max_val.item() > 0.9, f"Maximum value too low: {max_val.item()}"
 
 
 class TestAffineRegistration:
@@ -194,8 +194,9 @@ class TestAffineRegistration:
         reg = AffineRegistration(similarity_metric=mse, regularization_weight=1.0)
 
         # Create transform with small deviation from identity
-        transform = AffineTransform(ndim=2, init_identity=True).to(device)
-        transform.matrix.data += 0.1
+        transform = AffineTransform(
+            ndim=2, init_translation=0.1 * torch.ones([2], dtype=float)
+        ).to(device)
 
         reg_loss = reg._regularization_loss(transform)
 
@@ -230,9 +231,7 @@ class TestAffineRegistration:
         mse_loss = torch.mean((fixed - registered) ** 2)
         assert mse_loss.item() < 0.1
 
-    def test_register_translated_images_2d(
-        self, device, create_test_image_2d, create_affine_transform_2d
-    ):
+    def test_register_translated_images_2d(self, device, create_test_image_2d):
         """Test registration of translated 2D images."""
         mse = MSE()
         reg = AffineRegistration(
@@ -248,16 +247,12 @@ class TestAffineRegistration:
 
         # Create moving image with known translation
         tx, ty = 0.1, -0.05
-        transform_matrix = create_affine_transform_2d(tx=tx, ty=ty)
 
         # Apply transformation to create moving image
-        grid = create_grid(fixed.shape, device=device)
-        transform = AffineTransform(ndim=2, init_identity=False).to(device)
-        transform.set_matrix(transform_matrix)
-        transformed_grid = transform(grid)
-        moving = apply_transform(
-            fixed.unsqueeze(0).unsqueeze(0), transformed_grid
-        ).squeeze()
+        transform = AffineTransform(
+            ndim=2, init_translation=torch.as_tensor([-tx, -ty])
+        ).to(device)
+        moving = transform(fixed.unsqueeze(0).unsqueeze(0)).squeeze()
 
         # Register
         estimated_transform, registered = reg.register(fixed, moving)
@@ -267,14 +262,10 @@ class TestAffineRegistration:
         estimated_ty = estimated_transform[1, 2].item()
 
         # Should recover approximate translation (allowing for some error)
-        assert (
-            abs(estimated_tx - (-tx)) < 0.1
-        )  # Negative because we're registering moving to fixed
-        assert abs(estimated_ty - (-ty)) < 0.1
+        assert abs(estimated_tx - tx) < 3e-2
+        assert abs(estimated_ty - ty) < 3e-2
 
-    def test_register_with_initial_transform(
-        self, device, create_test_image_2d, create_affine_transform_2d
-    ):
+    def test_register_with_initial_transform(self, device, create_test_image_2d):
         """Test registration with initial transformation."""
         mse = MSE()
         reg = AffineRegistration(
@@ -288,16 +279,16 @@ class TestAffineRegistration:
         moving = create_test_image_2d(noise_level=0.0)
 
         # Provide initial transform
-        initial_transform = create_affine_transform_2d(tx=0.1, ty=0.1)
+        initial_transform = AffineTransform(
+            ndim=2, init_translation=torch.as_tensor([0.1, 0.1])
+        ).to(device)
 
         transform_matrix, registered = reg.register(fixed, moving, initial_transform)
 
         assert transform_matrix.shape == (2, 3)
         assert registered.shape == fixed.shape
 
-    def test_evaluation_metrics(
-        self, device, create_test_image_2d, create_affine_transform_2d
-    ):
+    def test_evaluation_metrics(self, device, create_test_image_2d):
         """Test evaluation of registration quality."""
         mse = MSE()
         reg = AffineRegistration(similarity_metric=mse)
@@ -306,9 +297,9 @@ class TestAffineRegistration:
         moving = create_test_image_2d(noise_level=0.0)
 
         # Use identity transform
-        transform_matrix = torch.eye(2, 3, device=device)
+        transform = AffineTransform(ndim=2).to(device)
 
-        metrics = reg.evaluate(fixed, moving, transform_matrix)
+        metrics = reg.evaluate(fixed, moving, transform)
 
         assert "ncc" in metrics
         assert "mse" in metrics
@@ -377,13 +368,12 @@ class TestAffineRegistrationIntegration:
         true_transform = create_affine_transform_2d(tx=0.15, ty=-0.1, rotation=0.05)
 
         # Apply transformation
-        grid = create_grid(fixed.shape, device=device)
-        transform = AffineTransform(ndim=2, init_identity=False).to(device)
-        transform.set_matrix(true_transform)
-        transformed_grid = transform(grid)
-        moving = apply_transform(
-            fixed.unsqueeze(0).unsqueeze(0), transformed_grid
-        ).squeeze()
+        transform = AffineTransform(
+            ndim=2,
+            init_translation=true_transform[:, 2],
+            init_rotation=true_transform[:, :2],
+        ).to(device)
+        moving = transform(fixed.unsqueeze(0).unsqueeze(0)).squeeze()
 
         # Register
         estimated_transform, registered = reg.register(fixed, moving)
@@ -451,14 +441,11 @@ class TestAffineRegistrationIntegration:
         fixed = create_test_image_2d(noise_level=0.1)
 
         # Create moving with known transform + noise
-        true_transform = create_affine_transform_2d(tx=0.1, ty=0.05)
-        grid = create_grid(fixed.shape, device=device)
-        transform = AffineTransform(ndim=2, init_identity=False).to(device)
-        transform.set_matrix(true_transform)
-        transformed_grid = transform(grid)
-        moving = apply_transform(
-            fixed.unsqueeze(0).unsqueeze(0), transformed_grid
-        ).squeeze()
+        tx, ty = 0.1, -0.05
+        transform = AffineTransform(
+            ndim=2, init_translation=torch.as_tensor([-tx, -ty])
+        ).to(device)
+        moving = transform(fixed.unsqueeze(0).unsqueeze(0)).squeeze()
         moving += torch.randn_like(moving) * 0.1  # Add noise
 
         # Register
@@ -469,5 +456,80 @@ class TestAffineRegistrationIntegration:
         estimated_ty = estimated_transform[1, 2].item()
 
         # Allow for larger error due to noise
-        assert abs(estimated_tx - (-0.1)) < 0.2
-        assert abs(estimated_ty - (-0.05)) < 0.2
+        assert abs(estimated_tx - tx) < 0.2
+        assert abs(estimated_ty - ty) < 0.2
+
+    def test_registration_with_anisotropic_spacing(
+        self, device, create_test_image_2d, create_affine_transform_2d
+    ):
+        """Test affine registration with anisotropic voxel spacing."""
+        from torchregister.io import sitk_to_torch, torch_to_sitk
+
+        mse = MSE()
+        reg = AffineRegistration(
+            similarity_metric=mse,
+            shrink_factors=[2, 1],
+            smoothing_sigmas=[1.0, 0.0],
+            num_iterations=[50, 100],
+            learning_rate=0.01,
+        )
+
+        # Create fixed image with anisotropic spacing
+        fixed_tensor = create_test_image_2d(shape=(64, 128), noise_level=0.01)
+
+        # Convert to SimpleITK with anisotropic spacing (2x difference)
+        # Higher resolution in y-direction (height), lower in x-direction (width)
+        fixed_sitk = torch_to_sitk(fixed_tensor)
+        anisotropic_spacing = [2.0, 1.0]  # [x_spacing, y_spacing] - coarser in x
+        fixed_sitk.SetSpacing(anisotropic_spacing)
+
+        # Create moving image with known transformation in PHYSICAL coordinates
+        # A translation of 4.0mm in x and 2.0mm in y should correspond to:
+        # - 2 pixels in x direction (4.0mm / 2.0mm/pixel)
+        # - 2 pixels in y direction (2.0mm / 1.0mm/pixel)
+        tx, ty = 0.0625, 0.03125  # Normalized coordinates
+
+        # Apply transformation to create moving image
+        transform = AffineTransform(
+            ndim=2, init_translation=torch.as_tensor([-tx, -ty])
+        ).to(device)
+        moving_tensor = transform(fixed_tensor.unsqueeze(0).unsqueeze(0)).squeeze()
+
+        # Convert moving to SimpleITK with same spacing
+        moving_sitk = torch_to_sitk(moving_tensor)
+        moving_sitk.SetSpacing(anisotropic_spacing)
+
+        # Register using SimpleITK images (spacing-aware)
+        estimated_transform, registered_tensor = reg.register(fixed_sitk, moving_sitk)
+
+        # Convert registered result back to SimpleITK format
+        registered = torch_to_sitk(registered_tensor, reference_image=fixed_sitk)
+
+        # Verify the estimated transformation accounts for anisotropic spacing
+        # The registration should find a transformation that compensates for the spacing
+        estimated_tx = estimated_transform[0, 2].item()
+        estimated_ty = estimated_transform[1, 2].item()
+
+        # Allow for some registration error, but should be close
+        assert abs(estimated_tx - tx) < 1e-3, (
+            f"X translation error too large: {estimated_tx} vs {tx}"
+        )
+        assert abs(estimated_ty - ty) < 1e-3, (
+            f"Y translation error too large: {estimated_ty} vs {ty}"
+        )
+
+        # Verify that registered image has better similarity than original moving
+        fixed_tensor_for_comparison = sitk_to_torch(fixed_sitk).to(device)
+        moving_tensor_for_comparison = sitk_to_torch(moving_sitk).to(device)
+
+        final_mse = torch.mean((fixed_tensor_for_comparison - registered_tensor) ** 2)
+        initial_mse = torch.mean(
+            (fixed_tensor_for_comparison - moving_tensor_for_comparison) ** 2
+        )
+
+        assert final_mse < initial_mse, "Registration should improve image similarity"
+
+        # Test that the spacing information is preserved in output
+        assert registered.GetSpacing() == fixed_sitk.GetSpacing(), (
+            "Output spacing should match fixed image"
+        )

@@ -106,27 +106,19 @@ class LNCC(RegistrationLoss):
     handling of local intensity variations.
     """
 
-    def __init__(self, window_size: int = 9, eps: float = 1e-8):
+    def __init__(
+        self, window_size: int = 7, smooth_nr: float = 1e-5, smooth_dr: float = 1e-5
+    ):
         """
         Args:
             window_size: Size of the local window
-            eps: Small value to avoid division by zero
+            smooth_nr: Small constant added to the numerator to avoid zero.
+            smooth_dr: Small constant added to the denominator to avoid nan
         """
         super().__init__("lncc")
         self.window_size = window_size
-        self.eps = eps
-
-    def _create_window(self, channel: int, device: torch.device) -> torch.Tensor:
-        """Create averaging window for local computations."""
-        window = torch.ones(
-            channel,
-            1,
-            self.window_size,
-            self.window_size,
-            device=device,
-            dtype=torch.float32,
-        )
-        return window / (self.window_size**2)
+        self.smooth_nr = smooth_nr
+        self.smooth_dr = smooth_dr
 
     def forward(self, fixed: torch.Tensor, moving: torch.Tensor) -> torch.Tensor:
         """
@@ -137,34 +129,19 @@ class LNCC(RegistrationLoss):
         Returns:
             Negative LNCC loss (lower is better)
         """
-        B, C, H, W = fixed.shape
-        padding = self.window_size // 2
-
-        # Create averaging window
-        window = self._create_window(C, fixed.device)
-
-        # Compute local means
-        fixed_mean = F.conv2d(fixed, window, padding=padding, groups=C)
-        moving_mean = F.conv2d(moving, window, padding=padding, groups=C)
-
-        # Compute local variances and covariance
-        fixed_sq = F.conv2d(fixed * fixed, window, padding=padding, groups=C)
-        moving_sq = F.conv2d(moving * moving, window, padding=padding, groups=C)
-        fixed_moving = F.conv2d(fixed * moving, window, padding=padding, groups=C)
-
-        # Compute local standard deviations
-        fixed_var = fixed_sq - fixed_mean * fixed_mean
-        moving_var = moving_sq - moving_mean * moving_mean
-        covar = fixed_moving - fixed_mean * moving_mean
-
-        # Compute LNCC
-        fixed_std = torch.sqrt(fixed_var + self.eps)
-        moving_std = torch.sqrt(moving_var + self.eps)
-
-        lncc = covar / (fixed_std * moving_std + self.eps)
-
-        # Return negative mean LNCC
-        return -lncc.mean()
+        kernel = torch.ones(
+            [*moving.shape[:2]] + 3 * [self.window_size], device=moving.device
+        )
+        t_sum = F.conv3d(moving, kernel, padding=self.window_size // 2)
+        p_sum = F.conv3d(fixed, kernel, padding=self.window_size // 2)
+        t2_sum = F.conv3d(moving**2, kernel, padding=self.window_size // 2)
+        p2_sum = F.conv3d(fixed**2, kernel, padding=self.window_size // 2)
+        tp_sum = F.conv3d(moving * fixed, kernel, padding=self.window_size // 2)
+        cross = tp_sum - t_sum * p_sum / kernel.sum()
+        t_var = F.relu(t2_sum - t_sum**2 / kernel.sum())
+        p_var = F.relu(p2_sum - p_sum**2 / kernel.sum())
+        cc = (cross**2 + self.smooth_nr) / (t_var * p_var + self.smooth_dr)
+        return -torch.mean(cc)
 
 
 class MSE(RegistrationLoss):

@@ -3,31 +3,30 @@ from pathlib import Path
 import SimpleITK as sitk
 
 import torchregister
-from torchregister.conversion import torch_affine_to_sitk_transform
-from torchregister.metrics import MattesMI
+from torchregister.metrics import LNCC
+from torchregister.transforms import torch_affine_to_sitk_transform
 
 
 def register(moving_file: Path, fixed_file: Path, output_dir: Path):
     moving_image = sitk.ReadImage(moving_file)
     fixed_image = sitk.ReadImage(fixed_file)
 
-    loss = MattesMI()
+    loss = LNCC()
     affine_reg = torchregister.AffineRegistration(
         similarity_metric=loss,
-        shrink_factors=[4, 2, 1],
-        smoothing_sigmas=[2.0, 1.0, 0.0],
-        num_iterations=[100, 60, 30],
+        shrink_factors=[4, 2],
+        smoothing_sigmas=[2.0, 1.0],
+        num_iterations=[100, 60],
         learning_rate=0.01,
     )
 
-    transform_matrix, registered_image = affine_reg.register(fixed_image, moving_image)
+    transform_matrix, _ = affine_reg.register(fixed_image, moving_image)
 
     output_dir.mkdir(exist_ok=True, parents=True)
-    torchregister.save_image(
-        registered_image, output_dir / "registered.nii.gz", reference_image=fixed_image
-    )
 
-    tx = torch_affine_to_sitk_transform(transform_matrix)
+    tx = torch_affine_to_sitk_transform(
+        transform_matrix, fixed_image=fixed_image, moving_image=moving_image
+    )
     sitk.WriteTransform(tx, output_dir / "tx.tfm")
 
     resampler = sitk.ResampleImageFilter()
