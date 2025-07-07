@@ -1,13 +1,16 @@
 from pathlib import Path
 
 import SimpleITK as sitk
+import torch
 
 import torchregister
 from torchregister.metrics import LNCC
 from torchregister.transforms import torch_affine_to_sitk_transform
 
 
-def register(moving_file: Path, fixed_file: Path, output_dir: Path):
+def register(
+    moving_file: Path, fixed_file: Path, output_dir: Path, device: str | None = None
+):
     moving_image = sitk.ReadImage(moving_file)
     fixed_image = sitk.ReadImage(fixed_file)
 
@@ -18,6 +21,7 @@ def register(moving_file: Path, fixed_file: Path, output_dir: Path):
         smoothing_sigmas=[2.0, 1.0],
         num_iterations=[100, 60],
         learning_rate=0.01,
+        device=None if device is None else torch.device(device),
     )
 
     transform_matrix, _ = affine_reg.register(fixed_image, moving_image)
@@ -54,6 +58,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "output_dir", type=Path, help="Directory to save the output files"
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cpu",
+        help="Device used for running tensor computations",
+    )
     args = parser.parse_args()
 
-    register(args.moving_file, args.fixed_file, args.output_dir)
+    register(args.moving_file, args.fixed_file, args.output_dir, args.device)
