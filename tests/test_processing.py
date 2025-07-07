@@ -8,7 +8,6 @@ import SimpleITK as sitk
 import torch
 
 from torchregister.processing import gaussian_blur, normalize_image, resample_image
-from torchregister.transforms import compute_gradient
 
 
 class TestGaussianBlur:
@@ -221,31 +220,6 @@ class TestImageProcessing:
 
         with pytest.raises(ValueError, match="Unsupported normalization method"):
             normalize_image(tensor, method="invalid")
-
-    def test_compute_gradient_2d(self, device):
-        """Test computing 2D image gradient."""
-        # Create test image with linear gradient
-        image = torch.zeros(1, 1, 8, 8, device=device)
-        for i in range(8):
-            image[:, :, :, i] = i  # Linear gradient in x direction
-
-        gradient = compute_gradient(image)
-
-        assert gradient.shape == (1, 2, 8, 8)  # [B, 2, H, W] for 2D gradients
-
-        # x-gradient should be approximately constant (≈1)
-        x_grad = gradient[:, 0, :, :]
-        assert torch.allclose(
-            x_grad[:, :, :-1], torch.ones_like(x_grad[:, :, :-1]), atol=0.1
-        )
-
-    def test_compute_gradient_3d(self, device):
-        """Test computing 3D image gradient."""
-        image = torch.rand(1, 1, 4, 8, 8, device=device)
-
-        gradient = compute_gradient(image)
-
-        assert gradient.shape == (1, 3, 4, 8, 8)  # [B, 3, D, H, W] for 3D gradients
 
 
 # Note: normalize_image and resample_image tests moved here from test_utils.py

@@ -4,11 +4,11 @@
 [![codecov](https://codecov.io/gh/dyollb/torchregister/branch/main/graph/badge.svg)](https://codecov.io/gh/dyollb/torchregister)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A PyTorch-based package for multi-scale affine and deformable image registration.
+A PyTorch-based package for multi-scale affine image registration.
 
 ## Features
 
-- **Multi-scale Registration**: Supports both affine and deformable registration
+- **Multi-scale Registration**: Supports affine registration
 - **Differentiable Losses**: Implementation of various similarity metrics (NCC, LNCC, MSE, Mattes MI, Dice)
 - **PyTorch Integration**: Fully differentiable and GPU-accelerated
 - **SimpleITK IO**: Seamless integration with medical imaging formats
@@ -17,7 +17,7 @@ A PyTorch-based package for multi-scale affine and deformable image registration
 
 ## Documentation
 
-- **[Image Dimension Conventions](docs/IMAGE_DIMENSIONS.md)**: Complete guide to image dimensions and multi-modal support
+- No documentation atm, but try out the [script](examples/register_affine_cli.py) in the examples folder
 
 ## Installation
 
@@ -54,19 +54,6 @@ affine_reg = torchregister.AffineRegistration(similarity_metric=ncc)
 transform, registered_image = affine_reg.register(fixed_image, moving_image)
 ```
 
-### Deformable Registration (RDMM)
-
-```python
-from torchregister.metrics import LNCC
-
-# Initialize RDMM registration
-lncc = LNCC()
-rdmm_reg = torchregister.RDMMRegistration(similarity_metric=lncc)
-
-# Perform registration
-deformation_field, registered_image = rdmm_reg.register(fixed_image, moving_image)
-```
-
 ### Custom Loss Functions
 
 ```python
@@ -87,18 +74,10 @@ Convert between TorchRegister transforms and SimpleITK transforms for integratio
 import torchregister
 import SimpleITK as sitk
 
-# Convert PyTorch affine matrix to SimpleITK AffineTransform
-affine_matrix = torch.eye(2, 3)  # 2D identity transform
-sitk_transform = torchregister.torch_affine_to_sitk_transform(affine_matrix)
+affine_reg = torchregister.AffineRegistration(similarity_metric=ncc)
+affine, _ = affine_reg.register(fixed_image, moving_image)
 
-# Convert PyTorch deformation field to SimpleITK DisplacementFieldTransform
-reference_image = sitk.Image([64, 64], sitk.sitkFloat32)
-deformation_field = torch.zeros(64, 64, 2)  # 2D zero deformation
-sitk_transform = torchregister.torch_deformation_to_sitk_transform(deformation_field, reference_image)
-
-# Convert SimpleITK transforms back to PyTorch
-torch_matrix = torchregister.sitk_transform_to_torch_affine(sitk_transform)
-torch_deformation = torchregister.sitk_displacement_to_torch_deformation(displacement_field)
+sitk_transform = torchregister.torch_affine_to_sitk_transform(affine, fixed_image=fixed_image, moving_image=moving_image)
 ```
 
 ## Requirements

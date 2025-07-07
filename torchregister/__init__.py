@@ -35,23 +35,19 @@ For detailed dimension conventions, see docs/IMAGE_DIMENSIONS.md
 __version__ = "0.1.0"
 
 # Import submodules to make them available as torchregister.submodule
-from . import affine, base, conversion, io, metrics, rdmm, transforms, utils
+from . import affine, base, io, metrics, transforms, utils
 
 # Only expose the most essential classes/functions at the top level
 from .affine import AffineRegistration
-from .rdmm import RDMMRegistration
 
 __all__ = [
     # Essential registration classes (top-level access)
     "AffineRegistration",
-    "RDMMRegistration",
     # Submodules (for organized access: torchregister.metrics.NCC, etc.)
     "affine",
     "base",
-    "conversion",
     "io",
     "metrics",
-    "rdmm",
     "transforms",
     "utils",
 ]
