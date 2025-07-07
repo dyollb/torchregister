@@ -129,14 +129,16 @@ class LNCC(RegistrationLoss):
         Returns:
             Negative LNCC loss (lower is better)
         """
+        ndim = len(fixed.shape[2:])
+        conv = F.conv3d if ndim == 3 else F.conv2d
         kernel = torch.ones(
-            [*moving.shape[:2]] + 3 * [self.window_size], device=moving.device
+            [*moving.shape[:2]] + ndim * [self.window_size], device=moving.device
         )
-        t_sum = F.conv3d(moving, kernel, padding=self.window_size // 2)
-        p_sum = F.conv3d(fixed, kernel, padding=self.window_size // 2)
-        t2_sum = F.conv3d(moving**2, kernel, padding=self.window_size // 2)
-        p2_sum = F.conv3d(fixed**2, kernel, padding=self.window_size // 2)
-        tp_sum = F.conv3d(moving * fixed, kernel, padding=self.window_size // 2)
+        t_sum = conv(moving, kernel, padding=self.window_size // 2)
+        p_sum = conv(fixed, kernel, padding=self.window_size // 2)
+        t2_sum = conv(moving**2, kernel, padding=self.window_size // 2)
+        p2_sum = conv(fixed**2, kernel, padding=self.window_size // 2)
+        tp_sum = conv(moving * fixed, kernel, padding=self.window_size // 2)
         cross = tp_sum - t_sum * p_sum / kernel.sum()
         t_var = F.relu(t2_sum - t_sum**2 / kernel.sum())
         p_var = F.relu(p2_sum - p_sum**2 / kernel.sum())
